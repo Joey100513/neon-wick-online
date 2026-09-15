@@ -45,6 +45,8 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 .menu-panel{width:min(430px,calc(100% - 36px));padding:34px 32px 30px;border:1px solid #718078;background:#172123e8;box-shadow:8px 8px 0 #0a1011}
 .menu-kicker{margin:0 0 9px;color:#d1bd6d;font-size:11px;letter-spacing:2px}.menu-panel h1{margin:0;color:#e9eee4;font-size:36px;font-weight:500;letter-spacing:3px}.menu-subtitle{margin:10px 0 28px;color:#9eafa5;font-size:12px}
 .menu-actions{display:grid;gap:8px}.menu-actions-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.menu-actions button{border:1px solid #72847b;color:#dbe2d7;min-height:40px}.menu-actions>button:first-child{background:#d3c477;color:#192122;border-color:#d3c477}.menu-actions button:hover{background:#ffffff16}.menu-actions>button:first-child:hover{background:#e5d58a}
+.network-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.network-actions button{border:1px solid #72847b;color:#dbe2d7;min-height:36px}
+.room-panel{display:grid;gap:12px;text-align:left;margin:18px 0 8px;padding:14px;border:1px solid #52655d;background:#111b1ce8}.room-panel h2{margin:0;color:#e5dbad;font-size:15px;font-weight:500}.room-panel p{margin:0;color:#9eafa5;font-size:10px;line-height:1.5}.room-panel label{display:grid;gap:5px;color:#becbc2;font-size:11px}.room-panel input{width:100%;min-height:36px;padding:5px 8px;border:1px solid #72847b;border-radius:0;background:#263335;color:#eef2e7;font:inherit}.room-id{padding:9px;border:1px dashed #d3c477;color:#f2d791;text-align:center;word-break:break-all;user-select:text;font-size:14px}.room-panel-actions{display:flex;justify-content:flex-end;gap:8px}.room-panel-actions button{border:1px solid #72847b}.room-panel-actions button:last-child{background:#d3c477;color:#192122;border-color:#d3c477}.network-status{min-height:16px;color:#8de6ef;font-size:10px}
 .keybind-table{width:100%;border-collapse:collapse;color:#becbc2;font-size:12px;margin:20px 0 24px;text-align:left}.keybind-table th{color:#9eafa5;font-size:10px;font-weight:500;text-transform:uppercase;padding:0 0 7px;border-bottom:1px solid #ffffff26}.keybind-table td{padding:8px 0;border-bottom:1px solid #ffffff16;vertical-align:top}.keybind-table td:first-child{padding-right:12px}.keybind-table td:last-child,.keybind-table th:last-child{text-align:right;color:#e5dbad;font-variant-numeric:tabular-nums}.keybind-table kbd{display:inline-block;min-width:28px;padding:2px 5px;border:1px solid #72847b;background:#263335;color:#e5dbad;text-align:center;font:inherit;font-size:11px;white-space:nowrap}.keybind-table kbd+kbd{margin-left:3px}#settingsPanel,#keybindPanel{padding:16px 0;overflow:auto}#settingsPanel .menu-panel,#keybindPanel .menu-panel{max-height:calc(100dvh - 32px);overflow:auto}
 
 .choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0 24px}.choice-grid button{min-height:82px;padding:10px 6px;border:1px solid #72847b;color:#dbe2d7;display:grid;place-items:center;gap:6px}.choice-grid button[aria-pressed=true]{background:#d3c477;color:#192122;border-color:#d3c477}.choice-grid button strong{font-size:15px;font-weight:500}.choice-grid button small{font-size:10px;color:#9eafa5;white-space:normal;line-height:1.5}.choice-grid button[aria-pressed=true] small{color:#4b564b}.flow-actions{display:flex;justify-content:space-between;gap:8px}.flow-actions button{border:1px solid #72847b;color:#dbe2d7;min-width:82px}.flow-actions button:last-child{background:#d3c477;color:#192122;border-color:#d3c477}.challenge-options{display:grid;gap:12px;text-align:left;padding:0 0 20px}.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 14px}.setup-grid .setup-field{gap:7px}.setup-grid .setup-field input{min-height:36px;font-size:18px}.setup-grid .setup-field small{font-size:10px;line-height:1.5}.setup-grid .setup-field span{line-height:1.5}.setup-grid .setup-field input{max-width:100%}.end-stats{display:grid;gap:7px;text-align:left;min-width:260px;margin:2px auto 8px;color:#becbc2;font-size:12px}.end-stats p{display:flex;justify-content:space-between;gap:48px;margin:0;padding:5px 0;border-bottom:1px solid #ffffff16}.end-stats strong{color:#e9eee4;font-weight:500;font-variant-numeric:tabular-nums}.end-actions{display:flex;justify-content:center;gap:8px}.end-actions button{border:1px solid #a6bbaa;color:#e5dbad}.end-actions button:first-child{background:#d3c477;color:#192122;border-color:#d3c477}#modeSelect,#mapSelect{overflow:auto}#respawnStatus{color:#d7c987}
@@ -58,7 +60,16 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 <div id="mainMenu">
 <section class="menu-panel" aria-labelledby="menuTitle">
 <p class="menu-kicker">NEON WICK</p><h1 id="menuTitle">ARSENAL</h1><p class="menu-subtitle">区域清剿 · 单人行动</p>
-<div class="menu-actions"><button id="singlePlayer" type="button">单人游戏</button><div class="menu-actions-row"><button id="openSettings" type="button">设置</button><button id="openKeybinds" type="button">键位</button></div></div>
+<div class="menu-actions"><button id="singlePlayer" type="button">单人游戏</button><div class="network-actions"><button id="createRoom" type="button">创建房间</button><button id="joinRoom" type="button">加入房间</button></div><div class="menu-actions-row"><button id="openSettings" type="button">设置</button><button id="openKeybinds" type="button">键位</button></div></div>
+<section id="roomPanel" class="room-panel" hidden aria-live="polite">
+<h2 id="roomPanelTitle">多人房间</h2>
+<label for="relayAddress">联机服务器<input id="relayAddress" type="url" placeholder="https://你的联机服务器" autocomplete="url"></label>
+<p id="roomPanelHelp">房间编号会显示在这里。</p>
+<div id="roomIdDisplay" class="room-id" hidden></div>
+<label id="roomInputField" for="roomIdInput">输入房间 ID<input id="roomIdInput" type="text" autocomplete="off" spellcheck="false" maxlength="80" placeholder="粘贴房主显示的编号"></label>
+<p id="networkStatus" class="network-status"></p>
+<div class="room-panel-actions"><button id="cancelRoom" type="button">返回</button><button id="roomAction" type="button">连接</button></div>
+</section>
 </section>
 </div>
 <div id="mapSelect" hidden>
@@ -170,6 +181,7 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 <div class="top">
 <div class="stat"><span class="label">NEON WICK</span><strong>ARSENAL</strong></div>
 <div class="stat"><span class="label">区域</span><strong id="room">01 · 01</strong></div>
+<div class="stat"><span class="label">房间</span><strong id="roomNumber">单人</strong></div>
 <div class="stat enemies"><span class="label">敌人</span><strong id="remaining">--/--</strong></div>
 <div class="stat"><span class="label">时间</span><strong id="timer">00:00</strong></div>
 <div class="stat"><span class="label">怪兽刷新</span><strong id="monsterTimer">01:00</strong></div>
@@ -429,6 +441,8 @@ function createGameAudio() {
     hasStealth: false, stealthActive: false, stealthRemaining: 0, hasSandevistan: false, sandevistanActive: false, sandevistanRemaining: 0, sandevistanUsed: 0, sandevistanCooldown: 0, selectedAbility: null, hasNailgun: false, gatlingHeat: 0, gatlingOverheated: 0, shotAudioCooldown: 0
   };
   const walls = [], rooms = [], openings = [], pillars = [], crates = [], enemies = [];
+  const remotePlayers = new Map();
+  const network = { mode: 'single', peer: null, connection: null, joinTimer: null, joining: false, roomId: '', localId: '', connections: new Map(), input: new Map(), ready: false, gameStarted: false, snapshotClock: 0, inputClock: 0, sequence: 0 };
   const rain = [];
   let bullets = [], debris = [], sparks = [], trails = [], ghosts = [], dashTrails = [], stealthTrails = [], sandevistanParticles = [], explosions = [], nails = [], mapLayer;
   let nav, noticeTimer, mapLayerDirty = false, hudCooldown = 0, endElapsed = 0, keybindReturn = 'menu';
@@ -439,7 +453,278 @@ function createGameAudio() {
   const compassCtx = compassCanvas?.getContext?.('2d');
   const airdrops = [];
   function resetAirdrop() { airdrops.length = 0; }
-  const ui = Object.fromEntries(['ammo', 'weapon', 'room', 'remaining', 'timer', 'monsterTimer', 'health', 'dash', 'notice', 'pause', 'mute', 'overlay', 'overlayTitle', 'resume', 'restart', 'mainMenu', 'settingsPanel', 'keybindPanel', 'singlePlayer', 'openSettings', 'closeSettings', 'openKeybinds', 'closeKeybinds', 'pauseKeybinds', 'menuMute', 'gameSetup', 'setupHealth', 'setupEnemies', 'stealthDuration', 'stealthDurationField', 'dashDuration', 'dashDurationField', 'cancelSetup', 'startConfigured', 'setupForm', 'setupError', 'hud', 'mapSelect', 'modeSelect', 'challengeOptions', 'modeError', 'challengeRespawns', 'playerDamageMultiplier', 'enemyDamageMultiplier', 'mapRooms', 'mapRainforest', 'modeInfinite', 'modeChallenge', 'continueMap', 'continueMode', 'backMap', 'backMode', 'endStats', 'endResult', 'endBullets', 'endKills', 'endDeaths', 'endKD', 'returnMenu', 'replay', 'respawnStatus', 'stealthAbility', 'sandevistanAbility', 'stealthStatus', 'sandevistanStatus', 'hpStatus'].map(id => [id, document.getElementById(id)]));
+  const ui = Object.fromEntries(['ammo', 'weapon', 'room', 'roomNumber', 'remaining', 'timer', 'monsterTimer', 'health', 'dash', 'notice', 'pause', 'mute', 'overlay', 'overlayTitle', 'resume', 'restart', 'mainMenu', 'settingsPanel', 'keybindPanel', 'singlePlayer', 'createRoom', 'joinRoom', 'cancelRoom', 'roomPanel', 'roomPanelTitle', 'roomPanelHelp', 'roomIdDisplay', 'roomInputField', 'roomIdInput', 'networkStatus', 'roomAction', 'openSettings', 'closeSettings', 'openKeybinds', 'closeKeybinds', 'pauseKeybinds', 'menuMute', 'gameSetup', 'setupHealth', 'setupEnemies', 'stealthDuration', 'stealthDurationField', 'dashDuration', 'dashDurationField', 'cancelSetup', 'startConfigured', 'setupForm', 'setupError', 'hud', 'mapSelect', 'modeSelect', 'challengeOptions', 'modeError', 'challengeRespawns', 'playerDamageMultiplier', 'enemyDamageMultiplier', 'mapRooms', 'mapRainforest', 'modeInfinite', 'modeChallenge', 'continueMap', 'continueMode', 'backMap', 'backMode', 'endStats', 'endResult', 'endBullets', 'endKills', 'endDeaths', 'endKD', 'returnMenu', 'replay', 'respawnStatus', 'stealthAbility', 'sandevistanAbility', 'stealthStatus', 'sandevistanStatus', 'hpStatus'].map(id => [id, document.getElementById(id)]));
+
+  function networkLabel(text) { if (ui.networkStatus) ui.networkStatus.textContent = text; }
+  const relayAddress = document.getElementById('relayAddress');
+  try { relayAddress.value = localStorage.getItem('neon-wick-relay') || ''; } catch {}
+  if (!relayAddress.value && /^https?:$/.test(location.protocol) && !location.hostname.endsWith('.github.io')) relayAddress.value = location.origin;
+  let relayLoadAttempt = 0;
+  async function loadRelay() {
+    const attempt = ++relayLoadAttempt;
+    const url = new URL(relayAddress.value.trim());
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
+        (location.protocol === 'https:' && url.protocol !== 'https:')) throw new Error('请输入有效的 HTTPS 联机服务器地址');
+    const address = url.origin;
+    if (!window.io) {
+      networkLabel('正在加载联机组件…');
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        const timer = setTimeout(() => { script.remove(); reject(new Error('加载服务器超时，请检查地址或网络')); }, 8000);
+        script.src = address + '/socket.io/socket.io.js';
+        script.onload = () => { clearTimeout(timer); resolve(); };
+        script.onerror = () => { clearTimeout(timer); script.remove(); reject(new Error('无法加载联机服务器')); };
+        document.head.append(script);
+      });
+    }
+    if (attempt !== relayLoadAttempt) return null;
+    try { localStorage.setItem('neon-wick-relay', address); } catch {}
+    return address;
+  }
+  class RelayEvents {
+    constructor() { this.events = new Map(); }
+    on(name, fn) { if (!this.events.has(name)) this.events.set(name, []); this.events.get(name).push(fn); return this; }
+    emit(name, data) { for (const fn of this.events.get(name) || []) fn(data); }
+  }
+  class RelayConnection extends RelayEvents {
+    constructor(client, id) { super(); this.client = client; this.peer = id; this.open = false; }
+    send(message) { if (!this.open || !this.client.socket.connected) throw new Error('连接已关闭'); this.client.socket.emit('relay', { target: this.peer, message }); }
+    close() { this.client.socket.emit('close-channel', this.peer); this.open = false; this.emit('close'); }
+  }
+  class RelayClient extends RelayEvents {
+    constructor(address, roomCode) {
+      super(); this.channels = new Map();
+      this.socket = window.io(address, { auth: { roomCode }, reconnection: false, timeout: 8000 });
+      this.socket.on('registered', data => { this.id = data.id; this.emit('open', this.id); });
+      this.socket.on('channel-open', id => {
+        let connection = this.channels.get(id);
+        if (!connection) { connection = new RelayConnection(this, id); this.channels.set(id, connection); this.emit('connection', connection); }
+        connection.open = true; connection.emit('open');
+      });
+      this.socket.on('relay', data => this.channels.get(data.from)?.emit('data', data.message));
+      this.socket.on('channel-close', id => {
+        const connection = this.channels.get(id);
+        if (connection) { this.channels.delete(id); connection.open = false; connection.emit('close'); }
+      });
+      this.socket.on('relay-error', error => this.emit('error', error));
+      this.socket.on('connect_error', error => this.emit('error', { type: 'server-unavailable', message: error.message }));
+      this.socket.on('disconnect', () => this.emit('close'));
+    }
+    connect(roomCode) {
+      const connection = new RelayConnection(this, roomCode); this.channels.set(roomCode, connection);
+      this.socket.emit('join-room', roomCode); return connection;
+    }
+    destroy() { this.socket.removeAllListeners(); this.socket.disconnect(); }
+  }
+  function netSend(connection, message) {
+    if (connection?.open) { try { connection.send(message); } catch (error) { console.warn('Relay send failed', error); } }
+  }
+  function allConnections() { return [...network.connections.values()].filter(connection => connection?.open); }
+  function actorSnapshot(actor, id = actor.id || '') {
+    return { id, x: actor.x, y: actor.y, r: actor.r, angle: actor.angle, hp: actor.hp, maxHp: actor.maxHp || state.playerMaxHp, weapon: actor.weapon || 'pistol', walk: actor.walk || 0, hit: actor.hit || 0, muzzle: actor.muzzle || 0, fireAngle: actor.fireAngle ?? actor.angle, deadAt: actor.deadAt ?? null, expired: !!actor.expired, state: actor.state || 'patrol' };
+  }
+  function mapSnapshot() {
+    return {
+      mapType: state.mapType, roomW: ROOM_W, roomH: ROOM_H, worldW: WORLD_W, worldH: WORLD_H,
+      walls: walls.map(({ x, y, w, h, kind, vine, hp, maxHp }) => ({ x, y, w, h, kind, vine, hp, maxHp })),
+      rooms: rooms.map(({ col, row, x, y, openings, initialCrates, initialEnemies }) => ({ col, row, x, y, openings, initialCrates, initialEnemies })),
+      openings: openings.map(hole => ({ ...hole })), pillars: pillars.map(pillar => ({ ...pillar })),
+      crates: crates.map(crate => ({ ...crate })), enemies: enemies.map(enemy => actorSnapshot(enemy, enemy.id))
+    };
+  }
+  function gameSnapshot() {
+    return {
+      time: state.time, paused: state.paused, ended: state.ended, won: state.won, lost: state.lost, kills: state.kills, deaths: state.deaths,
+      shotsFired: state.shotsFired, nextMonsterAt: state.nextMonsterAt, monsterTier: state.monsterTier, globalAlert: state.globalAlert,
+      player: actorSnapshot(player, network.localId || 'host'), playerMaxHp: state.playerMaxHp,
+      players: [...remotePlayers.values()].map(remote => actorSnapshot(remote, remote.id)),
+      enemies: enemies.map(enemy => actorSnapshot(enemy, enemy.id)),
+      bullets: bullets.map((bullet, index) => ({ id: bullet.id || `b${index}`, x: bullet.x, y: bullet.y, dx: bullet.dx, dy: bullet.dy, weapon: bullet.weapon, alive: bullet.alive, shooterId: bullet.shooter?.id || (bullet.shooter === player ? network.localId || 'host' : 'enemy'), nailLength: bullet.nailLength || 0 })),
+      monster: monster ? { ...monster } : null, crates: crates.map(crate => ({ x: crate.x, y: crate.y, w: crate.w, h: crate.h, hp: crate.hp, shrub: crate.shrub, room: crate.room })),
+      walls: walls.map(wall => ({ x: wall.x, y: wall.y, w: wall.w, h: wall.h, hp: wall.hp, maxHp: wall.maxHp, vine: wall.vine })),
+      airdrops: airdrops.map(drop => ({ ...drop, smoke: [] }))
+    };
+  }
+  function sendMapTo(connection) {
+    netSend(connection, { type: 'map', roomId: network.roomId, localId: connection.peer, map: mapSnapshot(), snapshot: gameSnapshot() });
+  }
+  function broadcastSnapshot() {
+    if (network.mode !== 'host') return;
+    network.snapshotClock -= SIMULATION_STEP;
+    if (network.snapshotClock > 0) return;
+    network.snapshotClock = 1 / 15;
+    const snapshot = { type: 'snapshot', seq: ++network.sequence, snapshot: gameSnapshot() };
+    for (const connection of allConnections()) netSend(connection, snapshot);
+  }
+  function restoreMap(data) {
+    state.mapType = data.mapType === 'rainforest' ? 'rainforest' : 'rooms';
+    ROOM_W = data.roomW; ROOM_H = data.roomH; WORLD_W = data.worldW; WORLD_H = data.worldH;
+    walls.length = 0; rooms.length = 0; openings.length = 0; pillars.length = 0; crates.length = 0; enemies.length = 0;
+    walls.push(...(data.walls || [])); rooms.push(...(data.rooms || [])); openings.push(...(data.openings || [])); pillars.push(...(data.pillars || [])); crates.push(...(data.crates || []));
+    enemies.push(...(data.enemies || []).map(enemy => ({ ...enemy, path: [], wait: 0, cooldown: 0, r: enemy.r || 12 })));
+    nav = { size: 10, cols: 1, rows: 1, free: new Uint8Array([1]), cells: [], dirty: false, routeCache: new Map() };
+    mapLayerDirty = true; buildMapLayer();
+  }
+  function applyGameSnapshot(data) {
+    if (!data) return;
+    state.playerMaxHp = data.playerMaxHp || state.playerMaxHp; state.time = Number(data.time) || 0; state.ended = !!data.ended; state.won = !!data.won; state.lost = !!data.lost;
+    state.kills = data.kills || 0; state.deaths = data.deaths || 0; state.shotsFired = data.shotsFired || 0; state.nextMonsterAt = data.nextMonsterAt || MONSTER_INTERVAL; state.monsterTier = data.monsterTier || 0; state.globalAlert = data.globalAlert || 0;
+    const localPlayer = data.players?.find(actor => actor.id === network.localId);
+    if (localPlayer && network.mode === 'guest') { player.x = localPlayer.x; player.y = localPlayer.y; player.hp = localPlayer.hp; player.hit = localPlayer.hit || 0; player.muzzle = localPlayer.muzzle || 0; }
+    if (network.mode === 'guest') {
+      remotePlayers.clear();
+      for (const remote of [...(data.players || []), ...(data.player ? [data.player] : [])]) {
+        if (!remote.id || remote.id === network.localId) continue;
+        remotePlayers.set(remote.id, { ...remote, r: remote.r || RADIUS, maxHp: remote.maxHp || state.playerMaxHp });
+      }
+      enemies.length = 0; enemies.push(...(data.enemies || []).map(enemy => ({ ...enemy, path: [], wait: 0, cooldown: 0, r: enemy.r || 12 })));
+      bullets = (data.bullets || []).map(bullet => ({ ...bullet, remaining: projectileRange(), shooter: bullet.shooterId === network.localId ? player : null }));
+      if (data.walls) { for (let i = 0; i < walls.length && i < data.walls.length; i++) walls[i].hp = data.walls[i].hp; }
+      if (data.crates) { for (let i = 0; i < crates.length && i < data.crates.length; i++) crates[i].hp = data.crates[i].hp; }
+      monster = data.monster ? { ...data.monster } : null;
+    }
+    updateHUD();
+  }
+  function handleNetworkMessage(connection, message) {
+    if (!connection.open || network.connections.get(connection.peer) !== connection || !message || typeof message !== 'object') return;
+    if (network.mode === 'host') {
+      if (message.type === 'join') {
+        if (!network.gameStarted) return netSend(connection, { type: 'reject', reason: '请等待房主开始游戏' });
+        if (remotePlayers.size >= 7) return netSend(connection, { type: 'reject', reason: '房间人数已满' });
+        const id = connection.peer, spawn = safePointInRoom(rooms[state.spawnRoomIndex]) || { x: player.x + 50, y: player.y };
+        const remote = { id, x: spawn.x, y: spawn.y, r: RADIUS, angle: 0, hp: state.playerMaxHp, maxHp: state.playerMaxHp, weapon: 'pistol', ammo: {}, cooldown: 0, draw: 0, swing: null, dashActive: false, walk: 0, step: 0, hit: 0, muzzle: 0, fireAngle: 0, input: { keys: [], angle: 0, firing: false, weapon: 'pistol', justPressed: false }, lastSeen: performance.now() };
+        remotePlayers.set(id, remote); network.connections.set(id, connection); sendMapTo(connection); notice('玩家已加入房间');
+      } else if (message.type === 'input') {
+        const remote = remotePlayers.get(connection.peer); if (!remote) return;
+        remote.input = { ...remote.input, ...message.input, keys: Array.isArray(message.input?.keys) ? message.input.keys : [] }; remote.lastSeen = performance.now();
+      } else if (message.type === 'leave') {
+        remotePlayers.delete(connection.peer); network.connections.delete(connection.peer);
+      }
+      return;
+    }
+    if (network.mode !== 'guest' || network.connection !== connection) return;
+    if (message.type === 'map' && network.joining) {
+      try {
+        if (!message.map || !message.snapshot || message.localId !== network.peer.id ||
+            !message.snapshot.players?.some(actor => actor.id === message.localId)) throw new Error('无效的房间初始化数据');
+        network.localId = message.localId; network.roomId = connection.peer;
+        restoreMap(message.map); applyGameSnapshot(message.snapshot);
+        clearTimeout(network.joinTimer); network.joinTimer = null; network.joining = false;
+        network.ready = true; ui.roomAction.disabled = false; ui.roomAction.textContent = '连接';
+        state.menu = false; state.paused = false; clearInput();
+        ui.mainMenu.hidden = true; ui.roomPanel.hidden = true; ui.overlay.hidden = true; ui.hud.inert = false;
+        networkLabel('已连接'); notice('已加入多人行动');
+      } catch (error) { failNetwork(`初始化失败：${error.message}`); }
+    }
+    if (message.type === 'snapshot' && network.ready) applyGameSnapshot(message.snapshot);
+    if (message.type === 'reject') failNetwork(message.reason || '加入失败');
+  }
+  function closeNetwork() {
+    relayLoadAttempt++;
+    clearTimeout(network.joinTimer);
+    const peer = network.peer, connections = [...network.connections.values()];
+    // Invalidate callbacks before close/destroy can synchronously emit events.
+    network.peer = null; network.connection = null; network.joinTimer = null; network.joining = false;
+    network.roomId = ''; network.localId = ''; network.ready = false; network.gameStarted = false; network.mode = 'single';
+    network.inputClock = 0; network.snapshotClock = 0;
+    network.connections.clear(); remotePlayers.clear(); network.input.clear();
+    ui.roomAction.disabled = false;
+    for (const connection of connections) { try { connection.close(); } catch (error) { console.warn(error); } }
+    if (peer) { try { peer.destroy(); } catch (error) { console.warn(error); } }
+  }
+  function failNetwork(message, popup = false) {
+    closeNetwork(); showMainMenu();
+    ui.roomPanel.hidden = false; ui.roomInputField.hidden = false; ui.roomIdDisplay.hidden = true;
+    ui.roomPanelTitle.textContent = '加入多人房间'; ui.roomAction.textContent = '连接';
+    networkLabel(message);
+    if (popup) window.alert(message);
+  }
+  function peerErrorText(error) {
+    return `连接错误：${error?.type || 'unknown'}${error?.message ? ' · ' + error.message : ''}`;
+  }
+  async function createNetworkRoom() {
+    ui.roomPanel.hidden = false;
+    let address;
+    try { address = await loadRelay(); } catch (error) { networkLabel(error.message); return; }
+    if (!address) return;
+    closeNetwork(); network.mode = 'host'; network.gameStarted = false; ui.roomPanel.hidden = false; ui.roomInputField.hidden = true; ui.roomIdDisplay.hidden = false; ui.roomAction.textContent = '开始游戏'; ui.roomPanelTitle.textContent = '创建多人房间'; ui.roomPanelHelp.textContent = '把下面的房间编号发给其他玩家，然后点击开始游戏。'; networkLabel('正在创建房间…');
+    ui.roomAction.disabled = true; ui.roomIdDisplay.textContent = '';
+    try {
+      const roomCode = 'nw-' + Array.from(crypto.getRandomValues(new Uint8Array(8)), n => n.toString(16).padStart(2, '0')).join('');
+      const peer = new RelayClient(address, roomCode);
+      network.peer = peer;
+      network.joinTimer = setTimeout(() => { if (network.peer === peer && !network.roomId) failNetwork('创建房间超时，请检查服务器地址或网络'); }, 8000);
+      peer.on('open', id => {
+        if (network.peer !== peer) return;
+        clearTimeout(network.joinTimer); network.joinTimer = null;
+        network.roomId = id; network.localId = id; ui.roomIdDisplay.textContent = id;
+        ui.roomAction.disabled = false; networkLabel('房间已创建，请先开始游戏');
+      });
+      peer.on('connection', connection => {
+        if (network.peer !== peer) { connection.close(); return; }
+        network.connections.set(connection.peer, connection);
+        connection.on('open', () => {
+          if (network.peer === peer) networkLabel('玩家连接成功，正在同步房间');
+        });
+        connection.on('data', message => {
+          if (network.peer === peer) handleNetworkMessage(connection, message);
+        });
+        connection.on('close', () => {
+          if (network.peer !== peer || network.connections.get(connection.peer) !== connection) return;
+          remotePlayers.delete(connection.peer); network.connections.delete(connection.peer);
+        });
+        connection.on('error', error => {
+          if (network.peer !== peer) return;
+          networkLabel(peerErrorText(error)); notice(peerErrorText(error)); connection.close();
+        });
+      });
+      peer.on('error', error => { if (network.peer === peer) failNetwork(peerErrorText(error)); });
+      peer.on('disconnected', () => { if (network.peer === peer) failNetwork('连接错误：network · 信令连接已断开'); });
+      peer.on('close', () => { if (network.peer === peer) failNetwork('房间已关闭，请重新创建'); });
+    } catch (error) { failNetwork(peerErrorText(error)); }
+  }
+  async function joinNetworkRoom() {
+    if (network.joining) return;
+    const roomId = ui.roomIdInput.value.trim(); if (!roomId) return networkLabel('请输入房间 ID');
+    let address;
+    try { address = await loadRelay(); } catch (error) { networkLabel(error.message); return; }
+    if (!address) return;
+    closeNetwork(); network.mode = 'guest'; ui.roomPanel.hidden = false; ui.roomInputField.hidden = false; ui.roomIdDisplay.hidden = true; ui.roomAction.textContent = '连接'; ui.roomPanelTitle.textContent = '加入多人房间'; networkLabel('正在连接房主…');
+    network.joining = true; network.roomId = roomId; ui.roomAction.disabled = true; ui.roomAction.textContent = '连接中…';
+    try {
+      const peer = new RelayClient(address);
+      network.peer = peer;
+      network.joinTimer = setTimeout(() => {
+        if (network.peer === peer && network.joining) failNetwork('连接失败，请检查房间码或网络，重试', true);
+      }, 8000);
+      peer.on('open', () => {
+        if (network.peer !== peer || network.connection) return;
+        try {
+          const connection = peer.connect(roomId, { reliable: true });
+          network.connection = connection; network.connections.set(roomId, connection);
+          connection.on('data', message => {
+            if (network.peer === peer) handleNetworkMessage(connection, message);
+          });
+          connection.on('open', () => {
+            if (network.peer !== peer) return;
+            networkLabel('连接成功，正在同步地图…');
+            try { connection.send({ type: 'join', protocol: 1 }); }
+            catch (error) { failNetwork(peerErrorText(error)); }
+          });
+          connection.on('close', () => { if (network.peer === peer) failNetwork('房主已断开连接，请重试'); });
+          connection.on('error', error => { if (network.peer === peer) failNetwork(peerErrorText(error)); });
+        } catch (error) { failNetwork(peerErrorText(error)); }
+      });
+      peer.on('error', error => { if (network.peer === peer) failNetwork(peerErrorText(error)); });
+      peer.on('disconnected', () => { if (network.peer === peer) failNetwork('连接错误：network · 信令连接已断开'); });
+      peer.on('close', () => { if (network.peer === peer) failNetwork('连接已关闭，请重试'); });
+    } catch (error) { failNetwork(peerErrorText(error)); }
+  }
+  function sendGuestInput() {
+    if (network.mode !== 'guest' || !network.connection?.open) return;
+    network.inputClock -= SIMULATION_STEP; if (network.inputClock > 0) return; network.inputClock = 0.05;
+    netSend(network.connection, { type: 'input', input: { keys: [...keys].filter(code => ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(code)), angle: player.angle, firing: pointer.left, justPressed: pointer.justPressed, weapon: player.weapon } });
+  }
 
   function sound(name, gain = 1, x = player.x, kind) {
     if (state.muted) return;
@@ -672,7 +957,7 @@ function createGameAudio() {
         let q = cells.find(cell => Math.hypot(cell.x - player.x, cell.y - player.y) > 90 && !enemies.some(e => Math.hypot(e.x - cell.x, e.y - cell.y) < 28));
         if (!q) return false;
         const weapon = loadouts[enemies.length], hp = weapon === 'rifle' ? 10 : 3;
-        enemies.push({ x: q.x, y: q.y, r: 12, hp, maxHp: hp, weapon, deadAt: null, angle: rand(-Math.PI, Math.PI), state: 'patrol', alert: 0, lost: 0, cooldown: 0, path: [], wait: rand(0, 2), walk: 0, step: 0, hit: 0, muzzle: 0, room: room.row * COLS + room.col });
+        enemies.push({ id: `enemy-${enemies.length}`, x: q.x, y: q.y, r: 12, hp, maxHp: hp, weapon, deadAt: null, angle: rand(-Math.PI, Math.PI), state: 'patrol', alert: 0, lost: 0, cooldown: 0, path: [], wait: rand(0, 2), walk: 0, step: 0, hit: 0, muzzle: 0, room: room.row * COLS + room.col });
         room.initialEnemies++;
       }
     }
@@ -784,6 +1069,7 @@ function createGameAudio() {
     for (const rect of crates) if (rect.hp > 0) accept(rayRect(ox, oy, dx, dy, limit, rect), rect, 'crate');
     if (actors) {
       if (shooter !== player) accept(rayCircle(ox, oy, dx, dy, limit, player), player, 'actor');
+      for (const remote of remotePlayers.values()) if (remote.hp > 0 && remote !== shooter) accept(rayCircle(ox, oy, dx, dy, limit, remote), remote, 'actor');
       for (const enemy of enemies) if (enemy.hp > 0 && enemy !== shooter) accept(rayCircle(ox, oy, dx, dy, limit, enemy), enemy, 'actor');
       if (monster && !monster.dead && monster !== shooter) accept(rayCircle(ox, oy, dx, dy, limit, monster), monster, 'actor');
     }
@@ -865,7 +1151,7 @@ function createGameAudio() {
     const angles = weapon === 'nailgun' ? [angle - 0.075, angle, angle + 0.075] : [angle];
     for (const shotAngle of angles) {
       const enemyRocket = shooter !== player && weapon === 'rocket';
-      const bullet = { x: shooter.x, y: shooter.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (shooter === player ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
+      const bullet = { id: `bullet-${network.sequence++}-${Math.random().toString(36).slice(2, 7)}`, x: shooter.x, y: shooter.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (shooter === player ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
     // Continuous weapons can otherwise create thousands of short-lived objects
     // while the mouse is held. Keep a bounded projectile window and discard the
     // oldest ordinary round before it can affect the current shot.
@@ -1034,6 +1320,10 @@ function createGameAudio() {
     if (target === player) {
       camera.shake = Math.max(camera.shake, 6);
       if (player.hp <= 0) respawn();
+    } else if (remotePlayers.has(target.id) && target.hp <= 0) {
+      const point = safePointInRoom(rooms[state.spawnRoomIndex]) || { x: player.x, y: player.y };
+      target.x = point.x; target.y = point.y; target.hp = target.maxHp || state.playerMaxHp; target.hit = 0; target.grace = 1.6;
+      notice('队友已重新整备');
     } else if (wasAlive && target.hp <= 0) {
       const isKill = target.kind === 'enemy' || enemies.includes(target) || target === monster;
       if (isKill) {
@@ -1073,11 +1363,12 @@ function createGameAudio() {
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 25, life: 0.18, maxLife: 0.18, color: '#fff1a8', flash: true });
     // A hot red shockwave sells the impact while respecting the one-second TTL.
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 10, life: ROCKET_EFFECT_TTL, maxLife: ROCKET_EFFECT_TTL, color: '#ff3b23', ring: true });
-    if (bullet.shooter === player) {
+    if (bullet.shooter === player || remotePlayers.has(bullet.shooter?.id)) {
       for (const enemy of enemies) if (enemy.hp > 0 && Math.hypot(enemy.x - x, enemy.y - y) <= ROCKET_BLAST_RADIUS) damage(enemy, bullet.damage, false);
       if (monster && !monster.dead && Math.hypot(monster.x - x, monster.y - y) <= ROCKET_BLAST_RADIUS) damage(monster, bullet.damage, false);
-    } else if (Math.hypot(player.x - x, player.y - y) <= ROCKET_BLAST_RADIUS) {
-      damage(player, bullet.damage, false);
+    } else {
+      if (Math.hypot(player.x - x, player.y - y) <= ROCKET_BLAST_RADIUS) damage(player, bullet.damage, false);
+      for (const remote of remotePlayers.values()) if (Math.hypot(remote.x - x, remote.y - y) <= ROCKET_BLAST_RADIUS) damage(remote, bullet.damage, false);
     }
     for (const crate of crates) if (crate.hp > 0 && Math.hypot(clamp(x, crate.x, crate.x + crate.w) - x, clamp(y, crate.y, crate.y + crate.h) - y) <= ROCKET_BLAST_RADIUS) breakCrate(crate, (crate.x - x) / 50, (crate.y - y) / 50);
     let destroyed = 0;
@@ -1197,6 +1488,7 @@ function createGameAudio() {
     for (const p of pillars) accept(rayRect(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, p), p, 'pillar');
     for (const c of crates) if (c.hp > 0) accept(rayRect(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, c), c, 'crate');
     if (bullet.shooter !== player) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, player), player, 'actor');
+    for (const remote of remotePlayers.values()) if (remote.hp > 0 && remote !== bullet.shooter) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, remote), remote, 'actor');
     for (const e of enemies) if (e.hp > 0 && e !== bullet.shooter) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, e), e, 'actor');
     if (monster && !monster.dead && monster !== bullet.shooter) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, monster), monster, 'actor');
     return result;
@@ -1631,9 +1923,27 @@ function createGameAudio() {
     const wantsFire = player.weapon === 'laser' ? pointer.justPressed : pointer.left;
     if (wantsFire && player.cooldown <= 0 && !player.reload && player.draw <= 0) {
       if (player.weapon === 'katana') startSlash();
+      else if (network.mode === 'guest') { sendGuestInput(); if (player.weapon === 'laser') pointer.justPressed = false; }
       else if (shoot(player, player.weapon) && player.weapon === 'laser') pointer.justPressed = false;
     }
     if (GUNS[player.weapon] && player.ammo[player.weapon].mag === 0 && !player.reload) reload();
+    sendGuestInput();
+  }
+  function updateRemotePlayer(remote, dt) {
+    if (remote.hp <= 0) return;
+    const input = remote.input || {}, remoteKeys = new Set(input.keys || []);
+    remote.angle = Number.isFinite(input.angle) ? input.angle : remote.angle;
+    remote.cooldown = Math.max(0, (remote.cooldown || 0) - dt);
+    let dx = Number(remoteKeys.has('KeyD')) - Number(remoteKeys.has('KeyA')), dy = Number(remoteKeys.has('KeyS')) - Number(remoteKeys.has('KeyW'));
+    const length = Math.hypot(dx, dy) || 1, speed = WALK_SPEED;
+    dx = dx / length * speed * dt; dy = dy / length * speed * dt;
+    if (!blocked(remote.x + dx, remote.y, remote.r)) remote.x += dx;
+    if (!blocked(remote.x, remote.y + dy, remote.r)) remote.y += dy;
+    remote.walk += Math.hypot(dx, dy) * 0.16;
+    if (input.weapon && ['pistol', 'rifle', 'rocket', 'laser', 'katana'].includes(input.weapon)) remote.weapon = input.weapon;
+    const wantsFire = input.weapon === 'laser' ? input.justPressed : input.firing;
+    if (wantsFire && remote.cooldown <= 0 && remote.weapon !== 'katana') { shoot(remote, remote.weapon, remote.angle); remote.cooldown = GUNS[remote.weapon]?.interval || 0.2; }
+    input.justPressed = false;
   }
   function enemyCanEnter(x, y) {
     const col = Math.floor(x / ROOM_W), row = Math.floor(y / ROOM_H);
@@ -1750,16 +2060,23 @@ function createGameAudio() {
     }
     state.time += dt;
     state.globalAlert = Math.max(0, state.globalAlert - dt);
+    updateWeather(dt);
+    if (network.mode === 'guest') {
+      updatePlayer(dt);
+      updateEffects(dt);
+      if (hudCooldown <= 0) updateHUD();
+      return;
+    }
     if (!monster && state.time >= state.nextMonsterAt) {
       if (!spawnMonster()) state.nextMonsterAt = state.time + 5;
     }
-    updateWeather(dt);
     updateAirdrop(dt);
     updatePlayer(dt);
     updateStealthChip();
     updateSandevistanChip();
     const slowDt = player.sandevistanActive ? dt * state.sandevistanTimeScale : dt;
     updateMonster(slowDt);
+    for (const remote of remotePlayers.values()) updateRemotePlayer(remote, dt);
     for (const enemy of enemies) updateEnemy(enemy, slowDt);
     for (const enemy of enemies) if (enemy.hp <= 0 && enemy.deadAt != null && state.time - enemy.deadAt >= CORPSE_TTL) enemy.expired = true;
     for (let i = 0; i < bullets.length && !state.ended; i++) advanceBullet(bullets[i], bullets[i].speed * (bullets[i].shooter === player ? dt : slowDt));
@@ -1774,6 +2091,7 @@ function createGameAudio() {
     }
     hudCooldown -= dt;
     if (hudCooldown <= 0) updateHUD();
+    broadcastSnapshot();
   }
 
   function updateHUD() {
@@ -1783,6 +2101,7 @@ function createGameAudio() {
     ui.weapon.textContent = player.reload ? '换弹中' : player.draw > 0 && player.weapon === 'katana' ? '拔刀' : ({ pistol: '手枪', rifle: '突击步枪', rocket: '火箭筒', katana: '长刀', gatling: '加特林', nailgun: '射钉枪', laser: '激光枪' })[player.weapon];
     const col = Math.floor(player.x / ROOM_W), row = Math.floor(player.y / ROOM_H);
     ui.room.textContent = col < 0 || row < 0 || col >= COLS || row >= ROWS ? '外廊' : `${String(row + 1).padStart(2, '0')} · ${String(col + 1).padStart(2, '0')}`;
+    if (ui.roomNumber) ui.roomNumber.textContent = network.mode === 'single' ? '单人' : network.roomId || '连接中';
     ui.remaining.textContent = `${enemies.filter(enemy => enemy.hp > 0).length}/${enemies.length}`;
     if (ui.timer) ui.timer.textContent = formatTime(state.time);
     if (ui.monsterTimer) ui.monsterTimer.textContent = monster && !monster.dead ? `出现中 · ${monster.reward}` : formatTime(Math.max(0, state.nextMonsterAt - state.time));
@@ -2125,6 +2444,7 @@ function createGameAudio() {
     }
     for (const enemy of enemies) if (enemy.hp <= 0 && !enemy.expired && visible(enemy)) drawActor(enemy);
     for (const enemy of enemies) if (enemy.hp > 0 && visible(enemy)) drawActor(enemy);
+    for (const remote of remotePlayers.values()) if (visible(remote, 80)) drawActor(remote);
     drawMonster();
     drawStealthChip();
     drawAirdrop();
@@ -2270,8 +2590,8 @@ function createGameAudio() {
     if (event.code === 'Space') stopDash();
     keys.delete(event.code);
   });
-  window.addEventListener('blur', () => pause(true));
-  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(true); });
+  window.addEventListener('blur', () => { if (network.mode === 'single') pause(true); else clearInput(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { if (network.mode === 'single') pause(true); else clearInput(); } });
   function handlePointerMove(event) {
     if (!positionPointer(event)) return;
     observePointerButtons(event.buttons);
@@ -2305,19 +2625,25 @@ function createGameAudio() {
     for (const key of ['mapSelect','modeSelect']) if (ui[key]) ui[key].hidden = true;
   }
   function showMainMenu() {
+    closeNetwork();
     clearRunGear();
     state.menu = true; state.paused = false; state.ended = false; clearInput(); hideOptionalPanels();
-    ui.mainMenu.hidden = false; ui.gameSetup.hidden = true; ui.settingsPanel.hidden = true; if (ui.keybindPanel) ui.keybindPanel.hidden = true;
+    ui.mainMenu.hidden = false; ui.roomPanel.hidden = true; ui.gameSetup.hidden = true; ui.settingsPanel.hidden = true; if (ui.keybindPanel) ui.keybindPanel.hidden = true;
     ui.overlay.hidden = true; if (ui.endStats) ui.endStats.hidden = true; if (ui.resume) ui.resume.hidden = false; if (ui.replay) ui.replay.hidden = true; if (ui.returnMenu) ui.returnMenu.hidden = true; ui.hud.inert = true;
     ui.singlePlayer.focus?.();
   }
   function startSinglePlayer() {
-    audio.unlock(); state.menu = true; clearInput();
+    audio.unlock(); closeNetwork(); state.menu = true; clearInput();
     ui.mainMenu.hidden = true; ui.settingsPanel.hidden = true; ui.gameSetup.hidden = true;
     if (ui.mapSelect) ui.mapSelect.hidden = false;
     if (ui.stealthDurationField) ui.stealthDurationField.hidden = true;
     if (ui.dashDurationField) ui.dashDurationField.hidden = true;
     ui.setupError.textContent = '';
+  }
+  function startHostGame() {
+    if (network.mode !== 'host' || !network.roomId) return networkLabel('房间尚未创建完成');
+    state.mapType = 'rooms'; state.mode = 'infinite'; state.playerMaxHp = DEFAULT_PLAYER_HP; state.enemyCount = 72; state.challengeRespawns = 3;
+    state.respawnsRemaining = Infinity; restart(); state.menu = false; ui.mainMenu.hidden = true; ui.roomPanel.hidden = true; ui.overlay.hidden = true; ui.hud.inert = false; network.ready = true; network.gameStarted = true; notice('房主已开始多人行动'); broadcastSnapshot();
   }
   function chooseMap(mapType) {
     state.mapType = mapType === 'rainforest' ? 'rainforest' : 'rooms';
@@ -2361,6 +2687,10 @@ function createGameAudio() {
     restart(); state.menu = false; ui.mainMenu.hidden = true; ui.gameSetup.hidden = true; ui.settingsPanel.hidden = true; ui.overlay.hidden = true; ui.hud.inert = false; canvas.focus?.();
   }
   ui.singlePlayer.addEventListener('click', startSinglePlayer);
+  ui.createRoom?.addEventListener('click', createNetworkRoom);
+  ui.joinRoom?.addEventListener('click', () => { closeNetwork(); ui.roomPanel.hidden = false; ui.roomInputField.hidden = false; ui.roomIdDisplay.hidden = true; ui.roomPanelTitle.textContent = '加入多人房间'; ui.roomPanelHelp.textContent = '输入房主显示的房间编号。'; ui.roomAction.textContent = '连接'; networkLabel(''); ui.roomIdInput.focus(); });
+  ui.cancelRoom?.addEventListener('click', () => { closeNetwork(); ui.roomPanel.hidden = true; ui.roomIdInput.value = ''; });
+  ui.roomAction?.addEventListener('click', () => network.mode === 'host' ? startHostGame() : joinNetworkRoom());
   ui.setupForm.addEventListener('submit', startConfiguredGame);
   ui.cancelSetup.addEventListener('click', () => { ui.gameSetup.hidden = true; if (ui.modeSelect) ui.modeSelect.hidden = false; });
   ui.mapRooms?.addEventListener('click', () => chooseMap('rooms')); ui.mapRainforest?.addEventListener('click', () => chooseMap('rainforest')); ui.continueMap?.addEventListener('click', continueMap);
@@ -2399,7 +2729,7 @@ function createGameAudio() {
   ui.restart.addEventListener('click', restart);
   function restart() {
     state.time = 0; state.won = false; state.lost = false; state.ended = false; state.paused = false; endElapsed = 0; hudCooldown = 0; state.deaths = 0; state.kills = 0; state.shotsFired = 0; state.airdrops = 0; state.nextAirdropKill = 10; state.nextBlueAirdropAt = 60;
-    state.monsterTier = 0; state.nextMonsterAt = MONSTER_INTERVAL; state.globalAlert = 0; monster = null;
+    state.monsterTier = 0; state.nextMonsterAt = MONSTER_INTERVAL; state.globalAlert = 0; monster = null; remotePlayers.clear();
     stealthChip.active = false; stealthChip.picked = false; sandevistanChip.active = false; sandevistanChip.picked = false;
     resetAirdrop(); resetWeather();
     state.respawnsRemaining = state.mode === 'infinite' ? Infinity : state.challengeRespawns;
