@@ -823,7 +823,7 @@ function createGameAudio() {
     networkLabel(`设置已保存 · ${roomRules.combat.toUpperCase()}`);
   });
   const relayAddress = document.getElementById('relayAddress');
-  relayAddress.value = ['localhost', '127.0.0.1'].includes(location.hostname) ? location.origin : 'https://neon-wick-online.onrender.com';
+  relayAddress.value = 'https://neon-wick-online.onrender.com';
   let relayLoadAttempt = 0;
   async function loadRelay() {
     const attempt = ++relayLoadAttempt;

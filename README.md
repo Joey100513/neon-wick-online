@@ -44,7 +44,8 @@ Do not deploy this as a short-lived serverless function.
 ## Room Rules and Movement
 
 The HTML defaults to `https://neon-wick-online.onrender.com`.
-When served on localhost, it uses that local server for previews instead.
+Local previews use the same default. For local backend testing, enter the
+local server address in the room panel.
 Deploy BOTH `server.js` (plus `package.json`) to Render and the complete `neon-wick-room36.html`
 to every player's frontend. This version changes gameplay message types;
 an old relay will reject the new messages. Room registration and joining
