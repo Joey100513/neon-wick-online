@@ -41,20 +41,47 @@ Without this setting, cross-origin access is permitted for local testing.
 Use a single server instance: rooms live in memory and are lost on restart.
 Do not deploy this as a short-lived serverless function.
 
+## Room Rules and Movement
+
+The HTML defaults to `https://neon-wick-online.onrender.com`.
+The existing relay protocol is unchanged; no new backend event is needed.
+Replace the hosted HTML with this version on every player's frontend.
+
+Room Settings contains PVP/PVEVP, map, enemy count, health, respawn rules,
+respawn count, both damage multipliers, stealth/dash duration, and optional
+laser/nailgun/gatling loadouts. Settings are editable before hosting starts.
+Joining guests receive the host's authoritative settings and can inspect them.
+PVP has no AI. Desert has no AI or bosses in either mode, occupies 3x2
+rainforest-sized blocks (1320x680), uses solid cacti and destructible tumbleweed
+cover, and limits weapons to pistol/rifle/rocket plus checked special guns.
+
+PVEVP bosses keep dropping alternating ability chips. Each player's every
+10 AI kills earns a red supply drop reserved for that player; it restores
+health and ammunition. Friendly fire includes projectiles, rockets, and melee
+where melee is available. Challenge lives are tracked per player.
+
+Guest position/input packets include x/y and an increasing sequence ID and
+are throttled to 60ms. Local movement is predicted immediately, acknowledged
+position corrections preserve movement made since the packet, and remote
+actors interpolate toward received positions. Host snapshots are also
+throttled to 60ms. Ping RTT through client-relay-host is logged every 2 seconds;
+it is not a one-way latency or a server-only ping. The host bounds/checks
+movement against collision but this is not a production anti-cheat system.
+
 ## Behavior and limits
 
 - No PeerJS, WebRTC, STUN, or TURN is used.
 - Socket.IO forwards game messages; the room host still simulates the game.
 - Up to eight players per room. The original single-player mode is retained.
-- Guests should join after the host starts the game.
+- Guests may join the lobby before the host starts; the start packet supplies
+  the new map, loadouts, and final rules to all members.
 - Connection and map-handshake timeout is eight seconds after the client
   library has loaded. Library loading has its own eight-second timeout.
 - A disconnect returns the player to the menu; retry using the same room
   while its host is still online. There is no automatic session recovery.
 - Host departure or server restart ends the room. Keep the host tab active:
   browsers can throttle background game simulation.
-- This replaces transport only; it does not add a new PvP ruleset,
-  anti-cheat, accounts, or persistent game storage.
+- No anti-cheat service, accounts, or persistent game storage is included.
 - Anyone with the room ID can join; do not treat it as a private authenticated
   service. Public deployment should have origin restrictions and service-level
   abuse controls.

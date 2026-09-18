@@ -2,7 +2,7 @@
   "name": "neon-wick-relay",
   "version": "1.0.0",
   "private": true,
-  "scripts": { "start": "node server.cjs", "test": "node tests/relay.cjs" },
+  "scripts": { "start": "node server.cjs", "test": "node tests/game-rules.cjs && node tests/relay.cjs" },
   "engines": { "node": ">=20" },
   "dependencies": { "socket.io": "4.8.1" },
   "devDependencies": { "socket.io-client": "4.8.1" }

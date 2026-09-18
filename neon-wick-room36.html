@@ -53,6 +53,23 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 @media(max-width:900px){.top{left:176px;gap:4px 8px;padding:5px 8px}.top .stat{gap:4px}.top .weapon{flex-basis:125px;padding-left:7px}.top #ammo{font-size:15px}}
 @media(max-width:640px){#gameSetup,#mapSelect,#modeSelect{place-items:start center;padding:14px 0;overflow:auto}.setup-panel{margin:0 auto}.top{left:168px;top:62px;right:0;padding:4px 6px;min-height:48px;gap:3px 6px}.label{display:none}.stat strong{font-size:10px}.weapon{padding-left:6px;min-width:0;flex-basis:110px}#ammo{font-size:14px;min-width:0}.bottom{padding:5px 7px;gap:5px;font-size:10px}.meters{grid-template-columns:22px 46px;margin-right:0;font-size:9px}progress{width:46px}.weapons button{min-width:45px;padding:4px 6px}.tools button{padding:4px 6px}.top .enemies{display:none}#notice{top:48px}#compass{left:7px;bottom:51px;width:122px;height:122px;padding:13px}#compassCanvas{width:94px;height:94px}#settingsPanel,#keybindPanel{padding:10px 0}#settingsPanel .menu-panel,#keybindPanel .menu-panel{max-height:calc(100dvh - 20px);padding:26px 20px 22px}.keybind-table{font-size:11px}.keybind-table td{padding:7px 0}.keybind-table td:first-child{padding-right:8px}.keybind-table kbd{font-size:10px;padding:2px 4px}}
 </style>
+<style>
+#mainMenu:has(#roomPanel:not([hidden])){overflow:auto;align-items:start;padding:16px 0}
+#roomSettings{position:absolute;inset:0;z-index:8;overflow:auto;background:#0f1819f5;padding:18px;display:grid;justify-items:center;align-items:start}
+#roomSettings form{width:min(540px,100%);text-align:left}
+#roomSettings h2{font-size:22px;margin:0 0 14px}
+.room-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.room-fields label{display:grid;gap:6px;font-size:12px;min-width:0}
+.room-fields input,.room-fields select{width:100%;min-width:0;background:#263335;color:#eef2e7;border:1px solid #72847b;min-height:36px;padding:6px;font:inherit}
+#roomSettings fieldset{border:0;padding:0;margin:14px 0}
+#roomSettings .room-weapons{display:flex;gap:14px;flex-wrap:wrap;font-size:12px}
+#roomSettings button{border:1px solid #72847b}
+#roomSettings .room-modes{display:flex;gap:8px;margin-bottom:16px}
+#roomSettings [aria-pressed=true]{background:#d3c477;color:#192122}
+#roomSettingsStatus{font-size:12px;min-height:18px;white-space:normal}
+#roomNumber{display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:480px){.room-fields{grid-template-columns:1fr}#roomSettings{padding:10px}}
+</style>
 </head>
 <body>
 <main id="wrap">
@@ -68,9 +85,39 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 <div id="roomIdDisplay" class="room-id" hidden></div>
 <label id="roomInputField" for="roomIdInput">输入房间 ID<input id="roomIdInput" type="text" autocomplete="off" spellcheck="false" maxlength="80" placeholder="粘贴房主显示的编号"></label>
 <p id="networkStatus" class="network-status"></p>
+<button id="openRoomSettings" type="button">房间设置</button>
 <div class="room-panel-actions"><button id="cancelRoom" type="button">返回</button><button id="roomAction" type="button">连接</button></div>
 </section>
 </section>
+</div>
+<div id="roomSettings" hidden>
+<form id="roomSettingsForm">
+<h2>房间设置</h2>
+<div class="room-modes" role="group" aria-label="对战模式">
+<button type="button" data-combat="pvp" aria-pressed="false">PVP</button>
+<button type="button" data-combat="pvevp" aria-pressed="true">PVEVP</button>
+</div>
+<fieldset id="roomSettingsFields">
+<div class="room-fields">
+<label>地图<select id="rsMap"><option value="rooms">初始房间</option><option value="rainforest">雨林</option><option value="desert">沙漠竞技场 · 6 区块</option></select></label>
+<label>复活规则<select id="rsMode"><option value="infinite">无限模式</option><option value="challenge">挑战模式</option></select></label>
+<label>敌人数量<input id="rsEnemies" type="number" min="0" max="144" step="1" value="72"></label>
+<label>玩家血量<input id="rsHealth" type="number" min="1" max="300" step="1" value="30"></label>
+<label>复活次数<input id="rsRespawns" type="number" min="1" max="30" step="1" value="3"></label>
+<label>玩家伤害倍率<input id="rsPlayerDamage" type="number" min="0.1" max="10" step="0.1" value="1"></label>
+<label>敌人伤害倍率<input id="rsEnemyDamage" type="number" min="0.1" max="10" step="0.1" value="1"></label>
+<label>隐身持续秒数<input id="rsStealth" type="number" min="1" max="120" step="1" value="20"></label>
+<label>突刺持续秒数<input id="rsDash" type="number" min="0" max="100" step="1" value="10"></label>
+</div>
+<fieldset class="room-weapons"><legend>全员特殊武器</legend>
+<label><input id="rsLaser" type="checkbox">激光枪</label>
+<label><input id="rsNailgun" type="checkbox">射钉枪</label>
+<label><input id="rsGatling" type="checkbox">加特林</label>
+</fieldset>
+</fieldset>
+<p id="roomSettingsStatus" role="status"></p>
+<div class="flow-actions"><button id="closeRoomSettings" type="button">返回</button><button id="saveRoomSettings" type="submit">保存设置</button></div>
+</form>
 </div>
 <div id="mapSelect" hidden>
 <section class="menu-panel" aria-labelledby="mapSelectTitle">
@@ -398,7 +445,8 @@ function createGameAudio() {
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const BASE_ROOM_W = 220, BASE_ROOM_H = 170, COLS = 12, ROWS = 6, BORDER = 70;
+  const BASE_ROOM_W = 220, BASE_ROOM_H = 170, BORDER = 70;
+  let COLS = 12, ROWS = 6;
   let ROOM_W = BASE_ROOM_W, ROOM_H = BASE_ROOM_H;
   let WORLD_W = ROOM_W * COLS, WORLD_H = ROOM_H * ROWS;
   const BODY_WIDTH = 26, RADIUS = BODY_WIDTH / 2, WALL = 8, PILLAR_SIZE = 40;
@@ -433,16 +481,43 @@ function createGameAudio() {
   const pointer = { x: W * 0.65, y: H / 2, left: false, right: false, buttons: 0, justPressed: false };
   const camera = { x: W / 2 - BORDER, y: H / 2 - BORDER, shake: 0, shakeTime: 0, sx: 0, sy: 0 };
   const state = { time: 0, paused: false, won: false, lost: false, ended: false, menu: true, deaths: 0, kills: 0, shotsFired: 0, airdrops: 0, nextAirdropKill: 10, nextBlueAirdropAt: 60, muted: false, mapType: 'rooms', mode: 'infinite', challengeRespawns: 3, respawnsRemaining: Infinity, stealthDuration: 20, dashDuration: 10, monsterTier: 0, nextMonsterAt: MONSTER_INTERVAL, globalAlert: 0, playerDamageMultiplier: 1, enemyDamageMultiplier: 1, playerMaxHp: DEFAULT_PLAYER_HP, enemyCount: 72, spawnRoomIndex: 0, sandevistanTimeScale: 0.2 };
-  const player = {
+  let player = {
     x: ROOM_W / 2, y: ROOM_H / 2, r: RADIUS, angle: 0, hp: state.playerMaxHp, weapon: 'laser',
     ammo: {}, cooldown: 0, reload: null, draw: 0, swing: null,
     dashRemaining: 0, dashCooldown: 0, dashActive: false, dashElapsed: 0, dashPressElapsed: 0, dashDistanceMoved: 0, dashTapEligible: false, dashX: 1, dashY: 0, step: 0, walk: 0, aimTarget: 0, sandevistanParticleTimer: 0,
     grace: 0, hit: 0, muzzle: 0, fireAngle: 0, burnRemaining: 0, burnTick: 0, burnDamage: 2,
     hasStealth: false, stealthActive: false, stealthRemaining: 0, hasSandevistan: false, sandevistanActive: false, sandevistanRemaining: 0, sandevistanUsed: 0, sandevistanCooldown: 0, selectedAbility: null, hasNailgun: false, gatlingHeat: 0, gatlingOverheated: 0, shotAudioCooldown: 0
   };
+  const localPlayer = player;
+  let roomRules = { combat: 'pvevp', mapType: 'rooms', mode: 'infinite', enemyCount: 72, playerMaxHp: 30,
+    challengeRespawns: 3, playerDamageMultiplier: 1, enemyDamageMultiplier: 1, stealthDuration: 20, dashDuration: 10,
+    laser: false, nailgun: false, gatling: false };
+  let roomDraft = { ...roomRules };
+  const chipDrops = [];
+  let activeDamageOwner = null;
+  function participants() { return [localPlayer, ...remotePlayers.values()]; }
+  function multiplayer() { return network.mode !== 'single'; }
+  function monstersAllowed() { return state.mapType !== 'desert' && (!multiplayer() || roomRules.combat === 'pvevp'); }
+  function applyRules() {
+    Object.assign(state, Object.fromEntries(['mapType', 'mode', 'enemyCount', 'playerMaxHp', 'challengeRespawns', 'playerDamageMultiplier', 'enemyDamageMultiplier', 'stealthDuration', 'dashDuration'].map(key => [key, roomRules[key]])));
+    if (roomRules.combat === 'pvp' || roomRules.mapType === 'desert') state.enemyCount = 0;
+  }
+  function weaponAllowed(name, actor = player) {
+    if (!multiplayer()) return true;
+    if (['pistol', 'rifle', 'rocket'].includes(name)) return true;
+    if (name === 'katana') return state.mapType !== 'desert';
+    return name === 'laser' ? roomRules.laser : name === 'nailgun' ? actor.hasNailgun : name === 'gatling' ? actor.hasGatling : false;
+  }
+  function equipRoomPlayer(actor) {
+    actor.hasGatling = roomRules.gatling; actor.hasNailgun = roomRules.nailgun;
+    actor.weapon = 'pistol'; actor.enemyKills = 0; actor.pvpKills = 0; actor.deaths = 0; actor.shotsFired = 0;
+    actor.spawnVersion = (actor.spawnVersion || 0) + 1; actor.grace = 1.6;
+    actor.pendingDrops = 0; actor.rewardCount = 0;
+  }
   const walls = [], rooms = [], openings = [], pillars = [], crates = [], enemies = [];
   const remotePlayers = new Map();
   const network = { mode: 'single', peer: null, connection: null, joinTimer: null, joining: false, roomId: '', localId: '', connections: new Map(), input: new Map(), ready: false, gameStarted: false, snapshotClock: 0, inputClock: 0, sequence: 0 };
+  Object.assign(network, { lastInputAt: -Infinity, inputSeq: 0, pending: new Map(), lastPingAt: -Infinity, lastPong: 0, ping: 0, round: 0 });
   const rain = [];
   let bullets = [], debris = [], sparks = [], trails = [], ghosts = [], dashTrails = [], stealthTrails = [], sandevistanParticles = [], explosions = [], nails = [], mapLayer;
   let nav, noticeTimer, mapLayerDirty = false, hudCooldown = 0, endElapsed = 0, keybindReturn = 'menu';
@@ -456,9 +531,49 @@ function createGameAudio() {
   const ui = Object.fromEntries(['ammo', 'weapon', 'room', 'roomNumber', 'remaining', 'timer', 'monsterTimer', 'health', 'dash', 'notice', 'pause', 'mute', 'overlay', 'overlayTitle', 'resume', 'restart', 'mainMenu', 'settingsPanel', 'keybindPanel', 'singlePlayer', 'createRoom', 'joinRoom', 'cancelRoom', 'roomPanel', 'roomPanelTitle', 'roomPanelHelp', 'roomIdDisplay', 'roomInputField', 'roomIdInput', 'networkStatus', 'roomAction', 'openSettings', 'closeSettings', 'openKeybinds', 'closeKeybinds', 'pauseKeybinds', 'menuMute', 'gameSetup', 'setupHealth', 'setupEnemies', 'stealthDuration', 'stealthDurationField', 'dashDuration', 'dashDurationField', 'cancelSetup', 'startConfigured', 'setupForm', 'setupError', 'hud', 'mapSelect', 'modeSelect', 'challengeOptions', 'modeError', 'challengeRespawns', 'playerDamageMultiplier', 'enemyDamageMultiplier', 'mapRooms', 'mapRainforest', 'modeInfinite', 'modeChallenge', 'continueMap', 'continueMode', 'backMap', 'backMode', 'endStats', 'endResult', 'endBullets', 'endKills', 'endDeaths', 'endKD', 'returnMenu', 'replay', 'respawnStatus', 'stealthAbility', 'sandevistanAbility', 'stealthStatus', 'sandevistanStatus', 'hpStatus'].map(id => [id, document.getElementById(id)]));
 
   function networkLabel(text) { if (ui.networkStatus) ui.networkStatus.textContent = text; }
+  const settingsFields = { mapType: 'rsMap', mode: 'rsMode', enemyCount: 'rsEnemies', playerMaxHp: 'rsHealth',
+    challengeRespawns: 'rsRespawns', playerDamageMultiplier: 'rsPlayerDamage', enemyDamageMultiplier: 'rsEnemyDamage',
+    stealthDuration: 'rsStealth', dashDuration: 'rsDash', laser: 'rsLaser', nailgun: 'rsNailgun', gatling: 'rsGatling' };
+  function showRoomSettings() {
+    clearInput();
+    roomDraft = { ...roomRules };
+    const locked = network.mode === 'guest' || network.gameStarted;
+    for (const [key, id] of Object.entries(settingsFields)) {
+      const field = document.getElementById(id);
+      if (field.type === 'checkbox') field.checked = !!roomDraft[key]; else field.value = roomDraft[key];
+    }
+    document.getElementById('roomSettingsFields').disabled = locked;
+    document.getElementById('saveRoomSettings').hidden = locked;
+    for (const button of document.querySelectorAll('[data-combat]')) {
+      button.disabled = locked; button.setAttribute('aria-pressed', String(button.dataset.combat === roomDraft.combat));
+    }
+    document.getElementById('roomSettingsStatus').textContent = locked ? '当前房间规则 · 房主开局前可修改' : '';
+    document.getElementById('roomSettings').hidden = false;
+  }
+  const inGameSettings = document.createElement('button');
+  inGameSettings.textContent = '房间设置'; inGameSettings.type = 'button';
+  inGameSettings.addEventListener('click', showRoomSettings);
+  document.querySelector('.tools').append(inGameSettings);
+  document.getElementById('openRoomSettings').addEventListener('click', showRoomSettings);
+  document.getElementById('closeRoomSettings').addEventListener('click', () => { document.getElementById('roomSettings').hidden = true; });
+  for (const button of document.querySelectorAll('[data-combat]')) button.addEventListener('click', () => {
+    roomDraft.combat = button.dataset.combat;
+    for (const b of document.querySelectorAll('[data-combat]')) b.setAttribute('aria-pressed', String(b === button));
+  });
+  document.getElementById('roomSettingsForm').addEventListener('submit', event => {
+    event.preventDefault();
+    if (network.mode === 'guest' || network.gameStarted) return;
+    if (!event.target.reportValidity()) return;
+    for (const [key, id] of Object.entries(settingsFields)) {
+      const field = document.getElementById(id);
+      roomDraft[key] = field.type === 'checkbox' ? field.checked : field.type === 'number' ? Number(field.value) : field.value;
+    }
+    roomRules = { ...roomDraft };
+    document.getElementById('roomSettings').hidden = true;
+    networkLabel(`设置已保存 · ${roomRules.combat.toUpperCase()}`);
+  });
   const relayAddress = document.getElementById('relayAddress');
-  try { relayAddress.value = localStorage.getItem('neon-wick-relay') || ''; } catch {}
-  if (!relayAddress.value && /^https?:$/.test(location.protocol) && !location.hostname.endsWith('.github.io')) relayAddress.value = location.origin;
+  relayAddress.value = 'https://neon-wick-online.onrender.com';
   let relayLoadAttempt = 0;
   async function loadRelay() {
     const attempt = ++relayLoadAttempt;
@@ -521,11 +636,16 @@ function createGameAudio() {
   }
   function allConnections() { return [...network.connections.values()].filter(connection => connection?.open); }
   function actorSnapshot(actor, id = actor.id || '') {
-    return { id, x: actor.x, y: actor.y, r: actor.r, angle: actor.angle, hp: actor.hp, maxHp: actor.maxHp || state.playerMaxHp, weapon: actor.weapon || 'pistol', walk: actor.walk || 0, hit: actor.hit || 0, muzzle: actor.muzzle || 0, fireAngle: actor.fireAngle ?? actor.angle, deadAt: actor.deadAt ?? null, expired: !!actor.expired, state: actor.state || 'patrol' };
+    return { id, x: actor.x, y: actor.y, r: actor.r, angle: actor.angle, hp: actor.hp, maxHp: actor.maxHp || state.playerMaxHp, weapon: actor.weapon || 'pistol', walk: actor.walk || 0, hit: actor.hit || 0, muzzle: actor.muzzle || 0, fireAngle: actor.fireAngle ?? actor.angle, deadAt: actor.deadAt ?? null, expired: !!actor.expired, state: actor.state || 'patrol',
+      room: actor.room, ack: actor.ack || 0, ping: actor.ping || 0, spawnVersion: actor.spawnVersion || 0,
+      hasStealth: !!actor.hasStealth, hasSandevistan: !!actor.hasSandevistan, hasGatling: !!actor.hasGatling, hasNailgun: !!actor.hasNailgun,
+      selectedAbility: actor.selectedAbility, stealthActive: !!actor.stealthActive, sandevistanActive: !!actor.sandevistanActive,
+      deaths: actor.deaths || 0, enemyKills: actor.enemyKills || 0, pvpKills: actor.pvpKills || 0, rewardCount: actor.rewardCount || 0,
+      ammo: actor.ammo, shotsFired: actor.shotsFired || 0 };
   }
   function mapSnapshot() {
     return {
-      mapType: state.mapType, roomW: ROOM_W, roomH: ROOM_H, worldW: WORLD_W, worldH: WORLD_H,
+      mapType: state.mapType, cols: COLS, rows: ROWS, roomW: ROOM_W, roomH: ROOM_H, worldW: WORLD_W, worldH: WORLD_H,
       walls: walls.map(({ x, y, w, h, kind, vine, hp, maxHp }) => ({ x, y, w, h, kind, vine, hp, maxHp })),
       rooms: rooms.map(({ col, row, x, y, openings, initialCrates, initialEnemies }) => ({ col, row, x, y, openings, initialCrates, initialEnemies })),
       openings: openings.map(hole => ({ ...hole })), pillars: pillars.map(pillar => ({ ...pillar })),
@@ -534,6 +654,8 @@ function createGameAudio() {
   }
   function gameSnapshot() {
     return {
+      rules: roomRules, started: network.gameStarted, round: network.round, hostPing: network.hostPing || 0,
+      pillars, chipDrops,
       time: state.time, paused: state.paused, ended: state.ended, won: state.won, lost: state.lost, kills: state.kills, deaths: state.deaths,
       shotsFired: state.shotsFired, nextMonsterAt: state.nextMonsterAt, monsterTier: state.monsterTier, globalAlert: state.globalAlert,
       player: actorSnapshot(player, network.localId || 'host'), playerMaxHp: state.playerMaxHp,
@@ -550,14 +672,17 @@ function createGameAudio() {
   }
   function broadcastSnapshot() {
     if (network.mode !== 'host') return;
-    network.snapshotClock -= SIMULATION_STEP;
-    if (network.snapshotClock > 0) return;
-    network.snapshotClock = 1 / 15;
+    const now = performance.now();
+    if (now - (network.lastSnapshotAt ?? -Infinity) < 60) return;
+    network.lastSnapshotAt = now;
+    if (now - network.lastPingAt >= 2000) { network.hostPing = now; network.lastPingAt = now; }
     const snapshot = { type: 'snapshot', seq: ++network.sequence, snapshot: gameSnapshot() };
     for (const connection of allConnections()) netSend(connection, snapshot);
   }
   function restoreMap(data) {
     state.mapType = data.mapType === 'rainforest' ? 'rainforest' : 'rooms';
+    if (data.mapType === 'desert') state.mapType = 'desert';
+    COLS = data.cols || 12; ROWS = data.rows || 6;
     ROOM_W = data.roomW; ROOM_H = data.roomH; WORLD_W = data.worldW; WORLD_H = data.worldH;
     walls.length = 0; rooms.length = 0; openings.length = 0; pillars.length = 0; crates.length = 0; enemies.length = 0;
     walls.push(...(data.walls || [])); rooms.push(...(data.rooms || [])); openings.push(...(data.openings || [])); pillars.push(...(data.pillars || [])); crates.push(...(data.crates || []));
@@ -567,21 +692,59 @@ function createGameAudio() {
   }
   function applyGameSnapshot(data) {
     if (!data) return;
+    if (data.rules) { roomRules = { ...data.rules }; applyRules(); }
+    network.echoHostPing = data.hostPing || 0;
+    if (data.started && !network.gameStarted) {
+      network.gameStarted = true; state.menu = false; state.paused = false;
+      ui.mainMenu.hidden = true; ui.roomPanel.hidden = true; ui.hud.inert = false;
+    }
     state.playerMaxHp = data.playerMaxHp || state.playerMaxHp; state.time = Number(data.time) || 0; state.ended = !!data.ended; state.won = !!data.won; state.lost = !!data.lost;
     state.kills = data.kills || 0; state.deaths = data.deaths || 0; state.shotsFired = data.shotsFired || 0; state.nextMonsterAt = data.nextMonsterAt || MONSTER_INTERVAL; state.monsterTier = data.monsterTier || 0; state.globalAlert = data.globalAlert || 0;
     const localPlayer = data.players?.find(actor => actor.id === network.localId);
-    if (localPlayer && network.mode === 'guest') { player.x = localPlayer.x; player.y = localPlayer.y; player.hp = localPlayer.hp; player.hit = localPlayer.hit || 0; player.muzzle = localPlayer.muzzle || 0; }
+    if (localPlayer && network.mode === 'guest') {
+      const sent = network.pending.get(localPlayer.ack);
+      const respawned = player.spawnVersion !== localPlayer.spawnVersion;
+      if (respawned || !network.ready) {
+        player.x = localPlayer.x; player.y = localPlayer.y;
+        player.spawnVersion = localPlayer.spawnVersion; player.swing = null; player.reload = null;
+        network.pending.clear(); clearInput();
+      } else if (sent) {
+        // Reapply movement predicted after the acknowledged position sample.
+        const x = localPlayer.x + player.x - sent.x, y = localPlayer.y + player.y - sent.y;
+        player.x = blocked(x, y, player.r) ? localPlayer.x : x;
+        player.y = blocked(x, y, player.r) ? localPlayer.y : y;
+      }
+      for (const seq of network.pending.keys()) if (seq <= localPlayer.ack) network.pending.delete(seq);
+      player.hp = localPlayer.hp; player.hit = localPlayer.hit || 0; player.muzzle = localPlayer.muzzle || 0;
+      for (const key of ['hasStealth', 'hasSandevistan', 'hasGatling', 'hasNailgun', 'deaths', 'enemyKills', 'pvpKills']) player[key] = localPlayer[key];
+      if (localPlayer.ammo) player.ammo = localPlayer.ammo;
+      if (state.mode === 'infinite' && player.ammo.gatling) player.ammo.gatling = { mag: Infinity, reserve: Infinity };
+      if (!player.selectedAbility) player.selectedAbility = player.hasSandevistan ? 'sandevistan' : player.hasStealth ? 'stealth' : null;
+      if (localPlayer.ping && localPlayer.ping !== network.lastPong) {
+        network.lastPong = localPlayer.ping; network.ping = Math.round(performance.now() - localPlayer.ping);
+        console.log(`[Neon Wick] ping RTT: ${network.ping} ms (client-relay-host)`);
+      }
+    }
     if (network.mode === 'guest') {
-      remotePlayers.clear();
+      const present = new Set();
       for (const remote of [...(data.players || []), ...(data.player ? [data.player] : [])]) {
         if (!remote.id || remote.id === network.localId) continue;
-        remotePlayers.set(remote.id, { ...remote, r: remote.r || RADIUS, maxHp: remote.maxHp || state.playerMaxHp });
+        present.add(remote.id);
+        const old = remotePlayers.get(remote.id);
+        const snap = !old || old.spawnVersion !== remote.spawnVersion;
+        remotePlayers.set(remote.id, { ...remote, x: snap ? remote.x : old.x, y: snap ? remote.y : old.y,
+          targetX: remote.x, targetY: remote.y, r: remote.r || RADIUS, maxHp: remote.maxHp || state.playerMaxHp });
       }
+      for (const id of remotePlayers.keys()) if (!present.has(id)) remotePlayers.delete(id);
       enemies.length = 0; enemies.push(...(data.enemies || []).map(enemy => ({ ...enemy, path: [], wait: 0, cooldown: 0, r: enemy.r || 12 })));
       bullets = (data.bullets || []).map(bullet => ({ ...bullet, remaining: projectileRange(), shooter: bullet.shooterId === network.localId ? player : null }));
-      if (data.walls) { for (let i = 0; i < walls.length && i < data.walls.length; i++) walls[i].hp = data.walls[i].hp; }
+      if (data.walls) { for (let i = 0; i < walls.length && i < data.walls.length; i++) { if (walls[i].hp !== data.walls[i].hp) mapLayerDirty = true; walls[i].hp = data.walls[i].hp; } }
       if (data.crates) { for (let i = 0; i < crates.length && i < data.crates.length; i++) crates[i].hp = data.crates[i].hp; }
       monster = data.monster ? { ...data.monster } : null;
+      if (data.pillars && data.pillars.length !== pillars.length) { pillars.splice(0, pillars.length, ...data.pillars); mapLayerDirty = true; }
+      airdrops.splice(0, airdrops.length, ...(data.airdrops || []));
+      chipDrops.splice(0, chipDrops.length, ...(data.chipDrops || []));
+      if (mapLayerDirty) buildMapLayer();
     }
     updateHUD();
   }
@@ -589,31 +752,46 @@ function createGameAudio() {
     if (!connection.open || network.connections.get(connection.peer) !== connection || !message || typeof message !== 'object') return;
     if (network.mode === 'host') {
       if (message.type === 'join') {
-        if (!network.gameStarted) return netSend(connection, { type: 'reject', reason: '请等待房主开始游戏' });
+        if (remotePlayers.has(connection.peer)) return sendMapTo(connection);
         if (remotePlayers.size >= 7) return netSend(connection, { type: 'reject', reason: '房间人数已满' });
         const id = connection.peer, spawn = safePointInRoom(rooms[state.spawnRoomIndex]) || { x: player.x + 50, y: player.y };
-        const remote = { id, x: spawn.x, y: spawn.y, r: RADIUS, angle: 0, hp: state.playerMaxHp, maxHp: state.playerMaxHp, weapon: 'pistol', ammo: {}, cooldown: 0, draw: 0, swing: null, dashActive: false, walk: 0, step: 0, hit: 0, muzzle: 0, fireAngle: 0, input: { keys: [], angle: 0, firing: false, weapon: 'pistol', justPressed: false }, lastSeen: performance.now() };
+        const remote = makeRemotePlayer(id, spawn);
         remotePlayers.set(id, remote); network.connections.set(id, connection); sendMapTo(connection); notice('玩家已加入房间');
       } else if (message.type === 'input') {
         const remote = remotePlayers.get(connection.peer); if (!remote) return;
-        remote.input = { ...remote.input, ...message.input, keys: Array.isArray(message.input?.keys) ? message.input.keys : [] }; remote.lastSeen = performance.now();
+        const input = message.input;
+        if (!input || !Number.isFinite(input.x) || !Number.isFinite(input.y) || !Number.isFinite(input.angle) ||
+            !Number.isSafeInteger(input.seq) || input.seq <= (remote.ack || 0)) return;
+        remote.input = { ...input, keys: Array.isArray(input.keys) ? input.keys.slice(0, 4) : [] };
+        remote.ping = Number.isFinite(input.ping) ? input.ping : 0;
+        if (input.echoHostPing === network.hostPing && network.hostPing && remote.lastPong !== input.echoHostPing) {
+          remote.lastPong = input.echoHostPing;
+          console.log(`[Neon Wick] ${remote.id} ping RTT: ${Math.round(performance.now() - input.echoHostPing)} ms (host-relay-client)`);
+        }
+        remote.lastSeen = performance.now();
       } else if (message.type === 'leave') {
         remotePlayers.delete(connection.peer); network.connections.delete(connection.peer);
       }
       return;
     }
     if (network.mode !== 'guest' || network.connection !== connection) return;
-    if (message.type === 'map' && network.joining) {
+    if (message.type === 'map' && (network.joining || message.snapshot?.round !== network.round)) {
       try {
         if (!message.map || !message.snapshot || message.localId !== network.peer.id ||
             !message.snapshot.players?.some(actor => actor.id === message.localId)) throw new Error('无效的房间初始化数据');
-        network.localId = message.localId; network.roomId = connection.peer;
+        network.localId = message.localId; network.roomId = connection.peer; network.round = message.snapshot.round;
+        network.pending.clear(); network.actions = {}; network.lastInputAt = -Infinity;
+        player.hasStealth = false; player.hasSandevistan = false; player.selectedAbility = null;
+        player.stealthActive = false; player.sandevistanActive = false; player.weapon = 'pistol';
+        refillAllWeapons();
+        network.ready = false;
         restoreMap(message.map); applyGameSnapshot(message.snapshot);
         clearTimeout(network.joinTimer); network.joinTimer = null; network.joining = false;
         network.ready = true; ui.roomAction.disabled = false; ui.roomAction.textContent = '连接';
-        state.menu = false; state.paused = false; clearInput();
-        ui.mainMenu.hidden = true; ui.roomPanel.hidden = true; ui.overlay.hidden = true; ui.hud.inert = false;
-        networkLabel('已连接'); notice('已加入多人行动');
+        state.menu = !message.snapshot.started; state.paused = false; clearInput();
+        ui.mainMenu.hidden = !!message.snapshot.started; ui.roomPanel.hidden = !!message.snapshot.started; ui.overlay.hidden = true; ui.hud.inert = !message.snapshot.started;
+        ui.roomAction.disabled = !message.snapshot.started;
+        networkLabel(message.snapshot.started ? '已连接' : '已加入 · 等待房主开始'); notice('已加入多人行动');
       } catch (error) { failNetwork(`初始化失败：${error.message}`); }
     }
     if (message.type === 'snapshot' && network.ready) applyGameSnapshot(message.snapshot);
@@ -627,6 +805,8 @@ function createGameAudio() {
     network.peer = null; network.connection = null; network.joinTimer = null; network.joining = false;
     network.roomId = ''; network.localId = ''; network.ready = false; network.gameStarted = false; network.mode = 'single';
     network.inputClock = 0; network.snapshotClock = 0;
+    network.pending.clear(); network.inputSeq = 0; network.lastInputAt = -Infinity; network.lastSnapshotAt = -Infinity;
+    network.lastPingAt = -Infinity; network.lastPong = 0; network.hostPing = 0;
     network.connections.clear(); remotePlayers.clear(); network.input.clear();
     ui.roomAction.disabled = false;
     for (const connection of connections) { try { connection.close(); } catch (error) { console.warn(error); } }
@@ -721,9 +901,56 @@ function createGameAudio() {
     } catch (error) { failNetwork(peerErrorText(error)); }
   }
   function sendGuestInput() {
-    if (network.mode !== 'guest' || !network.connection?.open) return;
-    network.inputClock -= SIMULATION_STEP; if (network.inputClock > 0) return; network.inputClock = 0.05;
-    netSend(network.connection, { type: 'input', input: { keys: [...keys].filter(code => ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(code)), angle: player.angle, firing: pointer.left, justPressed: pointer.justPressed, weapon: player.weapon } });
+    if (network.mode !== 'guest' || !network.connection?.open || !network.ready) return;
+    const now = performance.now();
+    if (now - network.lastInputAt < 60) return;
+    network.lastInputAt = now;
+    if (now - network.lastPingAt >= 2000) { network.pingToken = now; network.lastPingAt = now; }
+    const seq = ++network.inputSeq;
+    network.pending.set(seq, { x: player.x, y: player.y });
+    if (network.pending.size > 180) network.pending.delete(network.pending.keys().next().value);
+    netSend(network.connection, { type: 'input', input: { seq, x: player.x, y: player.y, spawnVersion: player.spawnVersion,
+      keys: [...keys].filter(code => ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(code)), angle: player.angle,
+      firing: pointer.left, justPressed: pointer.justPressed, weapon: player.weapon, dash: player.dashActive,
+      ping: network.pingToken, echoHostPing: network.echoHostPing, actions: network.actions || {} } });
+    pointer.justPressed = false;
+  }
+  function makeRemotePlayer(id, spawn) {
+    const actor = { ...structuredClone(localPlayer), ...spawn, id, maxHp: state.playerMaxHp, hp: state.playerMaxHp,
+      swing: null, reload: null, cooldown: 0, draw: 0, dashActive: false, input: {}, ack: 0, lastMoveAt: performance.now(),
+      hasStealth: false, hasSandevistan: false, stealthActive: false, sandevistanActive: false, selectedAbility: null, actions: {} };
+    equipRoomPlayer(actor);
+    withPlayer(actor, refillAllWeapons);
+    return actor;
+  }
+  function withPlayer(actor, action) {
+    const previous = player;
+    const stats = { deaths: state.deaths, shotsFired: state.shotsFired, respawnsRemaining: state.respawnsRemaining };
+    player = actor;
+    state.deaths = actor.deaths || 0; state.shotsFired = actor.shotsFired || 0;
+    state.respawnsRemaining = state.mode === 'infinite' ? Infinity : Math.max(0, state.challengeRespawns - state.deaths);
+    try { return action(); }
+    finally { actor.shotsFired = state.shotsFired; player = previous; Object.assign(state, stats); }
+  }
+  function acceptPosition(remote) {
+    const input = remote.input;
+    if (!input.seq || input.seq <= remote.ack) return;
+    remote.ack = input.seq;
+    if (input.spawnVersion !== remote.spawnVersion || remote.hp <= 0) return;
+    const elapsed = clamp((performance.now() - remote.lastMoveAt) / 1000, 0, 0.25);
+    remote.lastMoveAt = performance.now();
+    const distance = Math.hypot(input.x - remote.x, input.y - remote.y);
+    const speed = remote.stealthActive ? WALK_SPEED * 4 : input.dash ? DASH_SPEED : WALK_SPEED;
+    const limit = speed * elapsed + BODY_WIDTH * 5; // Allows the original tap dash / draw-cut.
+    if (distance > limit || input.x < -BORDER || input.y < -BORDER || input.x > WORLD_W + BORDER || input.y > WORLD_H + BORDER) return;
+    const sx = remote.x, sy = remote.y, steps = Math.max(1, Math.ceil(distance / 4));
+    for (let i = 1; i <= steps; i++) {
+      const x = sx + (input.x - sx) * i / steps, y = sy + (input.y - sy) * i / steps;
+      if ((input.dash ? hardBlocked : blocked)(x, y, remote.r)) break;
+      if (input.dash) for (const crate of crates) if (crate.hp > 0 && circleRect(x, y, remote.r, crate)) breakCrate(crate, 1, 0);
+      remote.x = x; remote.y = y;
+    }
+    remote.walk += Math.hypot(remote.x - sx, remote.y - sy) * 0.16;
   }
 
   function sound(name, gain = 1, x = player.x, kind) {
@@ -846,6 +1073,7 @@ function createGameAudio() {
     return Math.atan2(Math.sin(angle), Math.cos(angle));
   }
   function updateAim(dt) {
+    if (player !== localPlayer) { player.angle = player.input.angle || 0; return; }
     const target = screenToWorld(pointer.x, pointer.y);
     const dx = target.x - player.x, dy = target.y - player.y;
     // Keep the previous target if a transient invalid pointer value is sent
@@ -857,7 +1085,9 @@ function createGameAudio() {
     player.angle = normalizeAngle(player.angle + delta * smoothing);
   }
   function makeMap() {
-    const scale = state.mapType === 'rainforest' ? 2 : 1;
+    const desert = state.mapType === 'desert';
+    COLS = desert ? 3 : 12; ROWS = desert ? 2 : 6;
+    const scale = state.mapType === 'rainforest' || desert ? 2 : 1;
     ROOM_W = BASE_ROOM_W * scale; ROOM_H = BASE_ROOM_H * scale;
     WORLD_W = ROOM_W * COLS; WORLD_H = ROOM_H * ROWS;
     walls.length = rooms.length = openings.length = pillars.length = crates.length = enemies.length = 0;
@@ -882,8 +1112,10 @@ function createGameAudio() {
       const neighbors = vertical ? [[col - 1, row], [col, row]] : [[col, row - 1], [col, row]];
       for (const [c, r] of neighbors) if (c >= 0 && c < COLS && r >= 0 && r < ROWS) rooms[r * COLS + c].openings.push(hole);
     }
-    for (let col = 0; col <= COLS; col++) for (let row = 0; row < ROWS; row++) partition(true, col, row);
-    for (let row = 0; row <= ROWS; row++) for (let col = 0; col < COLS; col++) partition(false, col, row);
+    if (!desert) {
+      for (let col = 0; col <= COLS; col++) for (let row = 0; row < ROWS; row++) partition(true, col, row);
+      for (let row = 0; row <= ROWS; row++) for (let col = 0; col < COLS; col++) partition(false, col, row);
+    }
     // The exterior passage lets openings in outer room walls remain traversable.
     addWall(-BORDER - WALL, -BORDER - WALL, WORLD_W + 2 * BORDER + 2 * WALL, WALL);
     addWall(-BORDER - WALL, WORLD_H + BORDER, WORLD_W + 2 * BORDER + 2 * WALL, WALL);
@@ -911,12 +1143,13 @@ function createGameAudio() {
       }
       let column = place(PILLAR_SIZE);
       if (!column) column = { x: room.x + 18, y: room.y + 18, w: PILLAR_SIZE, h: PILLAR_SIZE };
-      pillars.push({ ...column, kind: 'pillar', tree: state.mapType === 'rainforest', room: room.row * COLS + room.col });
+      pillars.push({ ...column, kind: 'pillar', cactus: desert, tree: state.mapType === 'rainforest', room: room.row * COLS + room.col });
+      if (desert) for (let n = 0; n < 5; n++) { const cactus = place(PILLAR_SIZE); if (cactus) pillars.push({ ...cactus, kind: 'pillar', cactus: true, room: room.row * COLS + room.col }); }
       if (state.mapType === 'rainforest' && Math.random() < 0.5) {
         const secondTree = place(PILLAR_SIZE);
         if (secondTree) pillars.push({ ...secondTree, kind: 'pillar', tree: true, room: room.row * COLS + room.col });
       }
-      const count = Math.random() < 0.5 ? 4 : 5;
+      const count = desert ? 16 : Math.random() < 0.5 ? 4 : 5;
       for (let n = 0; n < count; n++) {
         let box = place(BODY_WIDTH);
         if (!box) {
@@ -929,7 +1162,7 @@ function createGameAudio() {
           }
         }
         if (!box) return false;
-        crates.push({ ...box, hp: 1, kind: 'crate', shrub: state.mapType === 'rainforest', room: room.row * COLS + room.col });
+        crates.push({ ...box, hp: 1, kind: 'crate', tumbleweed: desert, shrub: state.mapType === 'rainforest', room: room.row * COLS + room.col });
         room.initialCrates++;
       }
     }
@@ -941,7 +1174,7 @@ function createGameAudio() {
     player.x = spawnPoint.x; player.y = spawnPoint.y;
     buildNavigation();
     // Spread the requested total evenly across every other room.
-    const spawnRooms = rooms.filter(room => !roomNearSpawn(room)).map(room => ({ room, order: Math.random() })).sort((a, b) => a.order - b.order);
+    const spawnRooms = rooms.filter(room => desert ? room !== spawnRoom : !roomNearSpawn(room)).map(room => ({ room, order: Math.random() })).sort((a, b) => a.order - b.order);
     const baseEnemies = Math.floor(state.enemyCount / spawnRooms.length), extraEnemies = state.enemyCount % spawnRooms.length;
     const rifleCount = Math.round(state.enemyCount * 0.3);
     const pistolCount = Math.round(state.enemyCount * 0.5);
@@ -1117,6 +1350,7 @@ function createGameAudio() {
   }
 
   function switchWeapon(name) {
+    if (!weaponAllowed(name)) return;
     if (!['pistol', 'rifle', 'katana', 'rocket', 'gatling', 'nailgun', 'laser'].includes(name) || player.weapon === name) return;
     if (name === 'gatling' && !player.hasGatling) return;
     if (name === 'nailgun' && !player.hasNailgun) return;
@@ -1135,6 +1369,7 @@ function createGameAudio() {
   }
   function shoot(shooter, weapon = 'pistol', angleOverride = null) {
     const gun = GUNS[weapon];
+    if (!gun || (multiplayer() && participants().includes(shooter) && !weaponAllowed(weapon, shooter))) return false;
     if (shooter === player) {
       const ammo = player.ammo[weapon];
       if (player.reload || player.draw > 0 || ammo.mag <= 0 || (weapon === 'gatling' && player.gatlingOverheated > 0)) { if (ammo.mag <= 0) reload(); return false; }
@@ -1150,8 +1385,9 @@ function createGameAudio() {
     const angle = angleOverride == null ? shooter.angle : angleOverride;
     const angles = weapon === 'nailgun' ? [angle - 0.075, angle, angle + 0.075] : [angle];
     for (const shotAngle of angles) {
-      const enemyRocket = shooter !== player && weapon === 'rocket';
-      const bullet = { id: `bullet-${network.sequence++}-${Math.random().toString(36).slice(2, 7)}`, x: shooter.x, y: shooter.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (shooter === player ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
+      const allied = shooter === player || (multiplayer() && participants().includes(shooter));
+      const enemyRocket = !allied && weapon === 'rocket';
+      const bullet = { id: `bullet-${network.sequence++}-${Math.random().toString(36).slice(2, 7)}`, x: shooter.x, y: shooter.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (allied ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
     // Continuous weapons can otherwise create thousands of short-lived objects
     // while the mouse is held. Keep a bounded projectile window and discard the
     // oldest ordinary round before it can affect the current shot.
@@ -1169,6 +1405,7 @@ function createGameAudio() {
     return true;
   }
   function startSlash() {
+    if (!weaponAllowed('katana')) return false;
     if (player.draw > 0 || player.cooldown > 0 || player.swing) return false;
     deactivateStealth();
     stopDash(false);
@@ -1181,13 +1418,13 @@ function createGameAudio() {
       const nx = player.x + Math.cos(player.angle) * step, ny = player.y + Math.sin(player.angle) * step;
       if (hardBlocked(nx, ny, player.r)) break;
       for (const crate of crates) if (crate.hp > 0 && circleRect(nx, ny, player.r, crate)) breakCrate(crate, Math.cos(player.angle), Math.sin(player.angle));
-      for (const enemy of [...enemies, ...(monster && !monster.dead ? [monster] : [])]) {
+      for (const enemy of [...enemies, ...(monster && !monster.dead ? [monster] : []), ...(multiplayer() ? participants().filter(p => p !== player) : [])]) {
         if (enemy.hp <= 0 || player.swing.hit.has(enemy)) continue;
         const along = (enemy.x - startX) * Math.cos(player.angle) + (enemy.y - startY) * Math.sin(player.angle);
         const across = Math.abs((enemy.x - startX) * Math.sin(player.angle) - (enemy.y - startY) * Math.cos(player.angle));
         const crossed = segmentDistance(enemy.x, enemy.y, fromX, fromY, nx, ny) <= player.r + enemy.r;
         if (along >= 0 && along <= SLASH_BLINK_DISTANCE && across <= player.r + enemy.r && crossed) {
-          damage(enemy, 150); player.swing.hit.add(enemy);
+          damage(enemy, 150, true, player); player.swing.hit.add(enemy);
         }
       }
       player.x = nx; player.y = ny;
@@ -1206,7 +1443,7 @@ function createGameAudio() {
     const progress = clamp((swing.elapsed - 0.04) / 0.23, 0, 1);
     const current = -1.25 + progress * 2.5;
     if (swing.elapsed >= 0.04) {
-      for (const target of [...enemies, ...(monster && !monster.dead ? [monster] : []), ...crates]) {
+      for (const target of [...enemies, ...(monster && !monster.dead ? [monster] : []), ...crates, ...(multiplayer() ? participants().filter(p => p !== player) : [])]) {
         if (target.hp <= 0 || swing.hit.has(target)) continue;
         const tx = target.kind === 'crate' ? target.x + target.w / 2 : target.x;
         const ty = target.kind === 'crate' ? target.y + target.h / 2 : target.y;
@@ -1217,7 +1454,7 @@ function createGameAudio() {
         if (obstruction && obstruction.object !== target) continue;
         swing.hit.add(target);
         if (target.kind === 'crate') breakCrate(target, Math.cos(swing.angle), Math.sin(swing.angle));
-        else damage(target, Infinity);
+        else damage(target, Infinity, true, player);
         camera.shake = Math.max(camera.shake, 4);
       }
     }
@@ -1274,6 +1511,7 @@ function createGameAudio() {
     player.dashCooldown = 0;
   }
   function breakCrate(crate, dx, dy) {
+    if (network.mode === 'guest') return;
     if (crate.hp <= 0) return;
     crate.hp = 0; nav.dirty = true;
     for (let i = 0; i < 9 && debris.length < MAX_DEBRIS; i++) {
@@ -1311,7 +1549,18 @@ function createGameAudio() {
     const available = Math.max(0, MAX_SPARKS - sparks.length);
     for (let i = 0; i < Math.min(count, available); i++) sparks.push({ x, y, vx: rand(-90, 90), vy: rand(-90, 90), life: rand(0.12, 0.35), color });
   }
-  function damage(target, amount, effects = true) {
+  function damage(target, amount, effects = true, owner = activeDamageOwner) {
+    if (network.mode === 'guest') return;
+    if (multiplayer() && participants().includes(target)) {
+      if (target.hp <= 0 || target.grace > 0) return;
+      target.hp = Math.max(0, target.hp - amount); target.hit = 0.12;
+      if (effects) impact(target.x, target.y, '#f8d67c');
+      if (!target.hp) {
+        if (owner && owner !== target && participants().includes(owner)) owner.pvpKills = (owner.pvpKills || 0) + 1;
+        respawnMultiplayer(target);
+      }
+      return;
+    }
     if (target === player && player.grace > 0) return;
     if (target.hp <= 0) return;
     const wasAlive = target.hp > 0;
@@ -1328,14 +1577,23 @@ function createGameAudio() {
       const isKill = target.kind === 'enemy' || enemies.includes(target) || target === monster;
       if (isKill) {
         state.kills++;
-        player.hp = Math.min(state.playerMaxHp, player.hp + 3);
+        const killer = multiplayer() ? owner : player;
+        if (killer && (!multiplayer() || participants().includes(killer))) {
+          killer.hp = Math.min(state.playerMaxHp, killer.hp + 3);
+          if (enemies.includes(target) && multiplayer()) {
+            killer.enemyKills = (killer.enemyKills || 0) + 1;
+            if (roomRules.combat === 'pvevp' && killer.enemyKills % 10 === 0) killer.pendingDrops = (killer.pendingDrops || 0) + 1;
+          }
+        }
       }
       target.deadAt = state.time;
       target.state = 'dead';
       target.path = [];
       if (target === monster) {
         monster.dead = true; monster.deadAt = state.time; monster.fireRemaining = 0;
-        if (monster.reward === '隐身芯片') {
+        if (multiplayer() && roomRules.combat === 'pvevp') {
+          chipDrops.push({ x: monster.x, y: monster.y, ability: monster.tier % 2 ? 'stealth' : 'sandevistan' });
+        } else if (monster.reward === '隐身芯片') {
           stealthChip.active = true; stealthChip.picked = false; stealthChip.x = monster.x; stealthChip.y = monster.y;
         } else if (monster.reward === '斯安威斯坦芯片') {
           sandevistanChip.active = true; sandevistanChip.picked = false; sandevistanChip.x = monster.x; sandevistanChip.y = monster.y;
@@ -1347,6 +1605,23 @@ function createGameAudio() {
     } else if (target.hp > 0 && target.state === 'patrol') {
       target.state = 'alert'; target.alert = ENEMY_ALERT_TIME; target.lost = 0;
     }
+  }
+  function respawnMultiplayer(actor) {
+    actor.deaths = (actor.deaths || 0) + 1;
+    actor.spawnVersion = (actor.spawnVersion || 0) + 1;
+    actor.swing = null; actor.reload = null; actor.dashActive = false; actor.cooldown = 0;
+    actor.stealthActive = false; actor.sandevistanActive = false; actor.burnRemaining = 0;
+    if (state.mode === 'challenge' && actor.deaths > state.challengeRespawns) { actor.hp = 0; return; }
+    const points = rooms.map(room => safePointInRoom(room)).filter(Boolean);
+    points.sort((a, b) => {
+      const score = point => Math.min(...participants().filter(p => p !== actor && p.hp > 0).map(p => Math.hypot(p.x - point.x, p.y - point.y)), 10000);
+      return score(b) - score(a);
+    });
+    const point = points[0] || { x: actor.x, y: actor.y };
+    actor.x = point.x; actor.y = point.y; actor.hp = state.playerMaxHp; actor.grace = 1.6;
+    actor.renderX = actor.x; actor.renderY = actor.y;
+    actor.lastMoveAt = performance.now(); actor.input = {};
+    withPlayer(actor, refillAllWeapons);
   }
   function explode(x, y, bullet) {
     camera.shake = Math.max(camera.shake, 34);
@@ -1363,7 +1638,11 @@ function createGameAudio() {
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 25, life: 0.18, maxLife: 0.18, color: '#fff1a8', flash: true });
     // A hot red shockwave sells the impact while respecting the one-second TTL.
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 10, life: ROCKET_EFFECT_TTL, maxLife: ROCKET_EFFECT_TTL, color: '#ff3b23', ring: true });
-    if (bullet.shooter === player || remotePlayers.has(bullet.shooter?.id)) {
+    if (multiplayer()) {
+      for (const target of [...participants(), ...enemies, ...(monster && !monster.dead ? [monster] : [])]) {
+        if (target !== bullet.shooter && target.hp > 0 && Math.hypot(target.x - x, target.y - y) <= ROCKET_BLAST_RADIUS) damage(target, bullet.damage, false, bullet.shooter);
+      }
+    } else if (bullet.shooter === player || remotePlayers.has(bullet.shooter?.id)) {
       for (const enemy of enemies) if (enemy.hp > 0 && Math.hypot(enemy.x - x, enemy.y - y) <= ROCKET_BLAST_RADIUS) damage(enemy, bullet.damage, false);
       if (monster && !monster.dead && Math.hypot(monster.x - x, monster.y - y) <= ROCKET_BLAST_RADIUS) damage(monster, bullet.damage, false);
     } else {
@@ -1468,7 +1747,7 @@ function createGameAudio() {
       }
       bullet.alive = false;
       if (hit.kind === 'crate') {
-        if (hit.object.shrub) breakCrate(hit.object, bullet.dx, bullet.dy);
+        if (hit.object.shrub || hit.object.tumbleweed) breakCrate(hit.object, bullet.dx, bullet.dy);
       } else if (hit.kind === 'actor') {
         damage(hit.object, bullet.damage);
       } else if (effects) {
@@ -1538,20 +1817,23 @@ function createGameAudio() {
     const bullet = { x: player.x, y: player.y, dx: Math.cos(player.angle), dy: Math.sin(player.angle), shooter: player, remaining: range, alive: true };
     const segments = []; advanceGatling(bullet, range, false, segments); return segments;
   }
-  function spawnAirdrop(kind = 'special') {
+  function spawnAirdrop(kind = 'special', recipient = player) {
     const radius = Math.sqrt(3 * ROOM_W * ROOM_H / Math.PI);
-    const candidates = nav.cells.filter(c => Math.hypot(c.x - player.x, c.y - player.y) <= radius && Math.hypot(c.x - player.x, c.y - player.y) >= BODY_WIDTH * 2 && !blocked(c.x, c.y, 23) && !crates.some(o => o.hp > 0 && circleRect(c.x, c.y, 23, o)));
+    const candidates = nav.cells.filter(c => Math.hypot(c.x - recipient.x, c.y - recipient.y) <= radius && Math.hypot(c.x - recipient.x, c.y - recipient.y) >= BODY_WIDTH * 2 && !blocked(c.x, c.y, 23) && !crates.some(o => o.hp > 0 && circleRect(c.x, c.y, 23, o)));
     if (!candidates.length) return false;
     const point = candidates[Math.floor(Math.random() * candidates.length)];
-    const airdrop = { spawned: true, kind, x: point.x, y: point.y, altitude: 160, landed: false, claimed: false, smokeUntil: 0, smoke: [], emit: 0 };
+    const airdrop = { spawned: true, kind, ownerId: kind === 'red' ? (recipient.id || network.localId) : null, x: point.x, y: point.y, altitude: 160, landed: false, claimed: false, smokeUntil: 0, smoke: [], emit: 0 };
     airdrops.push(airdrop);
     notice(kind === 'special' ? '蓝色特种空投抵达：回满生命并补满所有武器弹药' : kind === 'gatling' ? '武器空投抵达：加特林' : kind === 'nailgun' ? '武器空投抵达：射钉枪' : '武器空投抵达'); return true;
   }
   function updateAirdrop(dt) {
     if (state.time >= state.nextBlueAirdropAt && spawnAirdrop('special')) state.nextBlueAirdropAt += 60;
-    if (state.kills >= state.nextAirdropKill) {
+    if (!multiplayer() && state.kills >= state.nextAirdropKill) {
       const kind = state.nextAirdropKill === 10 ? 'gatling' : 'nailgun';
       if (spawnAirdrop(kind)) state.nextAirdropKill = kind === 'gatling' ? 20 : Infinity;
+    }
+    if (multiplayer() && roomRules.combat === 'pvevp') for (const actor of participants()) {
+      if (actor.pendingDrops > 0 && spawnAirdrop('red', actor)) actor.pendingDrops--;
     }
     for (const airdrop of airdrops) updateAirdropItem(dt, airdrop);
     for (let i = airdrops.length - 1; i >= 0; i--) {
@@ -1572,7 +1854,14 @@ function createGameAudio() {
     }
     for (const p of airdrop.smoke) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.size += dt * 6; }
     airdrop.smoke = airdrop.smoke.filter(p => p.life > 0 && state.time < airdrop.smokeUntil);
-    if (airdrop.landed && !airdrop.claimed && Math.hypot(player.x - airdrop.x, player.y - airdrop.y) <= 36) {
+    if (multiplayer() && airdrop.landed && !airdrop.claimed) {
+      const actor = participants().find(p => p.hp > 0 && (!airdrop.ownerId || airdrop.ownerId === (p.id || network.localId)) && Math.hypot(p.x - airdrop.x, p.y - airdrop.y) <= 36);
+      if (actor) {
+        airdrop.claimed = true; actor.hp = state.playerMaxHp; actor.reload = null;
+        actor.rewardCount = (actor.rewardCount || 0) + 1; withPlayer(actor, refillAllWeapons);
+      }
+    }
+    if (!multiplayer() && airdrop.landed && !airdrop.claimed && Math.hypot(player.x - airdrop.x, player.y - airdrop.y) <= 36) {
       airdrop.claimed = true;
       if (airdrop.kind === 'gatling') player.hasGatling = true;
       if (airdrop.kind === 'nailgun') player.hasNailgun = true;
@@ -1607,6 +1896,7 @@ function createGameAudio() {
   }
 
   function spawnMonster() {
+    if (!monstersAllowed() || network.mode === 'guest') return false;
     if (monster && !monster.dead || !nav?.cells?.length) return false;
     const desired = COMPASS_BLOCK_RADIUS * Math.max(ROOM_W, ROOM_H);
     const candidates = nav.cells.filter(cell => {
@@ -1618,7 +1908,7 @@ function createGameAudio() {
     const tier = state.monsterTier;
     const health = tier === 0 ? 400 : 2000 * 1.5 ** (tier - 1);
     const multiplier = tier === 0 ? 1 : 5 * 1.5 ** (tier - 1);
-    const reward = tier === 0 ? '斯安威斯坦芯片' : tier === 1 ? '隐身芯片' : '无芯片';
+    const reward = multiplayer() ? (tier % 2 ? '隐身芯片' : '斯安威斯坦芯片') : tier === 0 ? '斯安威斯坦芯片' : tier === 1 ? '隐身芯片' : '无芯片';
     state.monsterTier++;
     state.nextMonsterAt = state.time + MONSTER_INTERVAL;
     monster = { boss: true, x: point.x, y: point.y, r: MONSTER_SIZE / 2, hp: health, maxHp: health, damageMultiplier: multiplier, tier, reward,
@@ -1636,6 +1926,8 @@ function createGameAudio() {
 
   function updateMonster(dt) {
     if (!monster || monster.dead) return;
+    const player = multiplayer() ? nearestOpponent(monster) : localPlayer;
+    if (!player) return;
     monster.clawCooldown = Math.max(0, monster.clawCooldown - dt);
     monster.fireCooldown = Math.max(0, monster.fireCooldown - dt);
     monster.hit = Math.max(0, monster.hit - dt);
@@ -1840,6 +2132,10 @@ function createGameAudio() {
   }
 
   function updatePlayer(dt) {
+    if (multiplayer() && player.hp <= 0) {
+      if (player === localPlayer) { updateAim(dt); sendGuestInput(); }
+      return;
+    }
     player.cooldown = Math.max(0, player.cooldown - dt);
     player.draw = Math.max(0, player.draw - dt);
     player.dashCooldown = 0;
@@ -1916,14 +2212,16 @@ function createGameAudio() {
     }
     player.walk += moved * 0.16; player.step += moved;
     if (player.step >= 31) { player.step %= 31; sound('footstep', 0.45); }
-    camera.x = clamp(player.x, W / 2 - BORDER, WORLD_W + BORDER - W / 2);
-    camera.y = clamp(player.y, H / 2 - BORDER, WORLD_H + BORDER - H / 2);
+    if (player === localPlayer) {
+      camera.x = clamp(player.x, W / 2 - BORDER, WORLD_W + BORDER - W / 2);
+      camera.y = clamp(player.y, H / 2 - BORDER, WORLD_H + BORDER - H / 2);
+    }
     updateAim(dt);
     updateSlash(dt);
     const wantsFire = player.weapon === 'laser' ? pointer.justPressed : pointer.left;
     if (wantsFire && player.cooldown <= 0 && !player.reload && player.draw <= 0) {
       if (player.weapon === 'katana') startSlash();
-      else if (network.mode === 'guest') { sendGuestInput(); if (player.weapon === 'laser') pointer.justPressed = false; }
+      else if (network.mode === 'guest') { /* Firing intent is sent once by the 60 ms position packet. */ }
       else if (shoot(player, player.weapon) && player.weapon === 'laser') pointer.justPressed = false;
     }
     if (GUNS[player.weapon] && player.ammo[player.weapon].mag === 0 && !player.reload) reload();
@@ -1931,19 +2229,29 @@ function createGameAudio() {
   }
   function updateRemotePlayer(remote, dt) {
     if (remote.hp <= 0) return;
-    const input = remote.input || {}, remoteKeys = new Set(input.keys || []);
-    remote.angle = Number.isFinite(input.angle) ? input.angle : remote.angle;
-    remote.cooldown = Math.max(0, (remote.cooldown || 0) - dt);
-    let dx = Number(remoteKeys.has('KeyD')) - Number(remoteKeys.has('KeyA')), dy = Number(remoteKeys.has('KeyS')) - Number(remoteKeys.has('KeyW'));
-    const length = Math.hypot(dx, dy) || 1, speed = WALK_SPEED;
-    dx = dx / length * speed * dt; dy = dy / length * speed * dt;
-    if (!blocked(remote.x + dx, remote.y, remote.r)) remote.x += dx;
-    if (!blocked(remote.x, remote.y + dy, remote.r)) remote.y += dy;
-    remote.walk += Math.hypot(dx, dy) * 0.16;
-    if (input.weapon && ['pistol', 'rifle', 'rocket', 'laser', 'katana'].includes(input.weapon)) remote.weapon = input.weapon;
-    const wantsFire = input.weapon === 'laser' ? input.justPressed : input.firing;
-    if (wantsFire && remote.cooldown <= 0 && remote.weapon !== 'katana') { shoot(remote, remote.weapon, remote.angle); remote.cooldown = GUNS[remote.weapon]?.interval || 0.2; }
+    acceptPosition(remote);
+    const savedKeys = [...keys], savedPointer = { ...pointer }, savedCamera = { ...camera };
+    const input = remote.input || {}, fresh = performance.now() - remote.lastSeen < 250;
+    keys.clear(); pointer.left = fresh && !!input.firing; pointer.justPressed = fresh && !!input.justPressed;
+    remote.dashActive = false;
+    try {
+      withPlayer(remote, () => {
+        if (weaponAllowed(input.weapon, remote)) switchWeapon(input.weapon);
+        for (const [key, action] of Object.entries({ reload, ability: toggleSelectedAbility, switchAbility })) {
+          const seq = input.actions?.[key] || 0;
+          if (seq > (remote.actions[key] || 0)) { remote.actions[key] = seq; action(); }
+        }
+        updatePlayer(dt);
+      });
+    } finally {
+      keys.clear(); for (const key of savedKeys) keys.add(key);
+      Object.assign(pointer, savedPointer); Object.assign(camera, savedCamera);
+    }
     input.justPressed = false;
+  }
+  function nearestOpponent(actor) {
+    return participants().filter(p => p.hp > 0 && !p.stealthActive && p.grace <= 0)
+      .sort((a, b) => Math.hypot(a.x - actor.x, a.y - actor.y) - Math.hypot(b.x - actor.x, b.y - actor.y))[0];
   }
   function enemyCanEnter(x, y) {
     const col = Math.floor(x / ROOM_W), row = Math.floor(y / ROOM_H);
@@ -1951,6 +2259,8 @@ function createGameAudio() {
   }
   function updateEnemy(enemy, dt) {
     if (enemy.hp <= 0) return;
+    const player = multiplayer() ? nearestOpponent(enemy) : localPlayer;
+    if (!player) return;
     enemy.hit = Math.max(0, enemy.hit - dt); enemy.muzzle = Math.max(0, enemy.muzzle - dt);
     enemy.cooldown = Math.max(0, enemy.cooldown - dt);
     const distance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
@@ -2051,6 +2361,7 @@ function createGameAudio() {
     camera.sx = rand(-shake, shake); camera.sy = rand(-shake, shake);
   }
   function update(dt) {
+    if (network.mode === 'host') broadcastSnapshot();
     if (state.menu || state.paused) return;
     if (state.ended && (state.won || state.lost)) {
       endElapsed += dt;
@@ -2063,30 +2374,53 @@ function createGameAudio() {
     updateWeather(dt);
     if (network.mode === 'guest') {
       updatePlayer(dt);
+      for (const actor of remotePlayers.values()) {
+        const alpha = 1 - Math.exp(-14 * dt);
+        actor.x += ((actor.targetX ?? actor.x) - actor.x) * alpha;
+        actor.y += ((actor.targetY ?? actor.y) - actor.y) * alpha;
+      }
       updateEffects(dt);
-      if (hudCooldown <= 0) updateHUD();
+      hudCooldown -= dt; if (hudCooldown <= 0) updateHUD();
       return;
     }
-    if (!monster && state.time >= state.nextMonsterAt) {
+    if (monstersAllowed() && !monster && state.time >= state.nextMonsterAt) {
       if (!spawnMonster()) state.nextMonsterAt = state.time + 5;
     }
     updateAirdrop(dt);
     updatePlayer(dt);
+    if (multiplayer()) localPlayer.shotsFired = state.shotsFired;
     updateStealthChip();
     updateSandevistanChip();
+    if (multiplayer()) for (let i = chipDrops.length - 1; i >= 0; i--) {
+      const chip = chipDrops[i], actor = participants().find(p => p.hp > 0 && Math.hypot(p.x - chip.x, p.y - chip.y) <= p.r + 18);
+      if (actor) {
+        actor[chip.ability === 'stealth' ? 'hasStealth' : 'hasSandevistan'] = true;
+        if (!actor.selectedAbility) actor.selectedAbility = chip.ability;
+        chipDrops.splice(i, 1);
+      }
+    }
     const slowDt = player.sandevistanActive ? dt * state.sandevistanTimeScale : dt;
     updateMonster(slowDt);
-    for (const remote of remotePlayers.values()) updateRemotePlayer(remote, dt);
+    for (const remote of remotePlayers.values()) {
+      updateRemotePlayer(remote, dt);
+      const alpha = 1 - Math.exp(-14 * dt);
+      remote.renderX = (remote.renderX ?? remote.x) + (remote.x - (remote.renderX ?? remote.x)) * alpha;
+      remote.renderY = (remote.renderY ?? remote.y) + (remote.y - (remote.renderY ?? remote.y)) * alpha;
+    }
     for (const enemy of enemies) updateEnemy(enemy, slowDt);
     for (const enemy of enemies) if (enemy.hp <= 0 && enemy.deadAt != null && state.time - enemy.deadAt >= CORPSE_TTL) enemy.expired = true;
-    for (let i = 0; i < bullets.length && !state.ended; i++) advanceBullet(bullets[i], bullets[i].speed * (bullets[i].shooter === player ? dt : slowDt));
+    for (let i = 0; i < bullets.length && !state.ended; i++) {
+      activeDamageOwner = bullets[i].shooter;
+      try { advanceBullet(bullets[i], bullets[i].speed * (bullets[i].shooter === player ? dt : slowDt)); }
+      finally { activeDamageOwner = null; }
+    }
     if (state.ended && (state.won || state.lost)) return;
     bullets = bullets.filter(bullet => bullet.alive);
     updateEffects(dt);
     if (mapLayerDirty) { buildMapLayer(); mapLayerDirty = false; }
     if (nav.dirty) buildNavigation();
     if (monster?.dead && state.time - monster.deadAt > CORPSE_TTL) monster = null;
-    if (enemies.length && enemies.every(enemy => enemy.hp <= 0)) {
+    if (!multiplayer() && enemies.length && enemies.every(enemy => enemy.hp <= 0)) {
       finishRun(true);
     }
     hudCooldown -= dt;
@@ -2095,6 +2429,8 @@ function createGameAudio() {
   }
 
   function updateHUD() {
+    if (player !== localPlayer) return;
+    inGameSettings.hidden = !multiplayer();
     hudCooldown = 0.066;
     const ammo = player.ammo[player.weapon];
     ui.ammo.textContent = ammo ? `${ammo.mag}/${ammo.reserve}` : '--/--';
@@ -2111,7 +2447,16 @@ function createGameAudio() {
     if (ui.stealthStatus) { ui.stealthStatus.textContent = player.stealthActive ? (state.mode === 'infinite' ? '激活' : `${Math.ceil(player.stealthRemaining)}s`) : player.hasStealth ? (player.selectedAbility === 'stealth' ? '当前 · E' : 'T 切换') : '未获得'; ui.stealthAbility.classList.toggle('active', player.stealthActive); ui.stealthAbility.classList.toggle('selected', player.selectedAbility === 'stealth'); }
     if (ui.sandevistanStatus) { ui.sandevistanStatus.textContent = player.sandevistanCooldown > 0 ? `冷却 ${Math.ceil(player.sandevistanCooldown)}s` : player.sandevistanActive ? (state.mode === 'infinite' ? '激活' : `${Math.ceil(player.sandevistanRemaining)}s`) : player.hasSandevistan ? (player.selectedAbility === 'sandevistan' ? '当前 · E' : 'T 切换') : '未获得'; ui.sandevistanAbility.classList.toggle('active', player.sandevistanActive); ui.sandevistanAbility.classList.toggle('selected', player.selectedAbility === 'sandevistan'); ui.sandevistanAbility.classList.toggle('cooling', player.sandevistanCooldown > 0); }
     ui.dash.value = state.mode === 'infinite' ? 1 : state.dashDuration <= 0 ? 0 : player.dashActive ? clamp(1 - player.dashElapsed / state.dashDuration, 0, 1) : 1;
-    for (const button of document.querySelectorAll('[data-weapon]')) { button.setAttribute('aria-pressed', String(button.dataset.weapon === player.weapon)); if (button.dataset.weapon === 'gatling') button.hidden = !player.hasGatling; if (button.dataset.weapon === 'nailgun') button.hidden = !player.hasNailgun; }
+    for (const button of document.querySelectorAll('[data-weapon]')) {
+      const weapon = button.dataset.weapon;
+      button.setAttribute('aria-pressed', String(weapon === player.weapon));
+      button.hidden = !weaponAllowed(weapon) || (weapon === 'gatling' && !player.hasGatling) || (weapon === 'nailgun' && !player.hasNailgun);
+    }
+    if (multiplayer()) {
+      ui.monsterTimer.textContent = monstersAllowed() ? ui.monsterTimer.textContent : '无怪兽';
+      ui.remaining.textContent = `敌 ${player.enemyKills || 0} · PVP ${player.pvpKills || 0}`;
+      state.respawnsRemaining = state.mode === 'infinite' ? Infinity : Math.max(0, state.challengeRespawns - (player.deaths || 0));
+    }
     if (ui.respawnStatus) ui.respawnStatus.textContent = state.mode === 'challenge' ? `剩余复活：${Math.max(0, state.respawnsRemaining)}` : '无限复活';
   }
 
@@ -2155,10 +2500,11 @@ function createGameAudio() {
     mapLayer.width = WORLD_W + BORDER * 2; mapLayer.height = WORLD_H + BORDER * 2;
     const g = mapLayer.getContext('2d');
     const rainforest = state.mapType === 'rainforest';
+    const desert = state.mapType === 'desert';
     g.translate(BORDER, BORDER); g.fillStyle = rainforest ? '#1b2c24' : '#1b2225';
     g.fillRect(-BORDER, -BORDER, mapLayer.width, mapLayer.height);
     for (const room of rooms) {
-      g.fillStyle = (rainforest ? ['#2d4330', '#344a32', '#2b4131', '#3b4a32'] : ['#354244', '#3c4642', '#333e42', '#454447'])[(room.row + room.col * 3) % 4];
+      g.fillStyle = (desert ? ['#bb9f70', '#b39769', '#c6ad7c', '#bfa676'] : rainforest ? ['#2d4330', '#344a32', '#2b4131', '#3b4a32'] : ['#354244', '#3c4642', '#333e42', '#454447'])[(room.row + room.col * 3) % 4];
       g.fillRect(room.x, room.y, ROOM_W, ROOM_H);
       g.strokeStyle = '#ffffff06'; g.lineWidth = 1;
       for (let y = room.y + 16; y < room.y + ROOM_H; y += 20) for (let x = room.x + 10; x < room.x + ROOM_W; x += 20) {
@@ -2205,6 +2551,17 @@ function createGameAudio() {
       g.fillStyle = '#a7b4a3'; g.fillRect(wall.x, wall.y, wall.w, 2);
     }
     for (const column of pillars) {
+      if (column.cactus) {
+        const cx = column.x + column.w / 2, cy = column.y + column.h / 2;
+        g.fillStyle = '#514b3670'; g.fillRect(column.x + 8, column.y + 8, column.w, column.h);
+        g.fillStyle = '#35634d'; g.fillRect(cx - 7, column.y, 14, column.h);
+        g.fillRect(column.x, cy - 2, column.w, 10);
+        g.fillRect(column.x, column.y + 4, 9, 22); g.fillRect(column.x + column.w - 9, column.y + 2, 9, 24);
+        g.fillStyle = '#7ea969'; g.fillRect(cx - 4, column.y + 3, 3, column.h - 6);
+        g.fillStyle = '#f5df9a';
+        for (let y = column.y + 5; y < column.y + column.h; y += 8) { g.fillRect(cx + 4, y, 4, 1); g.fillRect(cx - 9, y + 3, 3, 1); }
+        continue;
+      }
       if (column.tree) {
         const cx = column.x + column.w / 2, cy = column.y + column.h / 2;
         g.fillStyle = '#0f251ccc'; g.beginPath(); g.ellipse(cx + 9, cy + 11, 29, 23, 0, 0, Math.PI * 2); g.fill();
@@ -2226,6 +2583,18 @@ function createGameAudio() {
     }
   }
   function drawCrate(crate) {
+    if (crate.tumbleweed) {
+      const x = crate.x + crate.w / 2, y = crate.y + crate.h / 2;
+      ctx.save(); ctx.translate(x, y);
+      ctx.fillStyle = '#4f493b55'; ctx.beginPath(); ctx.ellipse(3, 6, 16, 10, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#675d3b'; ctx.lineWidth = 2;
+      for (let i = 0; i < 5; i++) {
+        ctx.rotate(Math.PI / 5); ctx.beginPath(); ctx.ellipse(0, 0, 13, 6 + i, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.strokeStyle = '#e9d097'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-10, -8); ctx.lineTo(10, 8); ctx.moveTo(-7, 10); ctx.lineTo(9, -10); ctx.stroke();
+      ctx.restore(); return;
+    }
     if (crate.shrub) {
       const x = crate.x + crate.w / 2, y = crate.y + crate.h / 2;
       ctx.fillStyle = '#11282077'; ctx.beginPath(); ctx.ellipse(x + 3, y + 6, 18, 12, 0, 0, Math.PI * 2); ctx.fill();
@@ -2444,11 +2813,18 @@ function createGameAudio() {
     }
     for (const enemy of enemies) if (enemy.hp <= 0 && !enemy.expired && visible(enemy)) drawActor(enemy);
     for (const enemy of enemies) if (enemy.hp > 0 && visible(enemy)) drawActor(enemy);
-    for (const remote of remotePlayers.values()) if (visible(remote, 80)) drawActor(remote);
+    for (const remote of remotePlayers.values()) if (visible(remote, 80)) {
+      drawActor(network.mode === 'host' ? { ...remote, x: remote.renderX ?? remote.x, y: remote.renderY ?? remote.y } : remote);
+    }
     drawMonster();
     drawStealthChip();
     drawAirdrop();
     drawSandevistanChip();
+    for (const chip of chipDrops) if (visible(chip, 60)) {
+      ctx.save(); ctx.translate(chip.x, chip.y); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = chip.ability === 'stealth' ? '#c7b8ff' : '#70ddf5';
+      ctx.fillRect(-6, -6, 12, 12); ctx.strokeStyle = '#eefcff'; ctx.strokeRect(-8, -8, 16, 16); ctx.restore();
+    }
     drawActor(player, true);
     for (const nail of nails) if (visible(nail, 40)) {
       ctx.save(); ctx.translate(nail.x, nail.y); ctx.rotate(nail.angle);
@@ -2561,6 +2937,11 @@ function createGameAudio() {
     syncPointerButtons(pointer.buttons & ~bit);
   }
   window.addEventListener('keydown', event => {
+    if (!document.getElementById('roomSettings').hidden) {
+      if (event.code === 'Escape') { event.preventDefault(); document.getElementById('roomSettings').hidden = true; }
+      return;
+    }
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target?.tagName)) return;
     if (state.menu) {
       if (event.code === 'Escape' && !event.repeat && ui.mainMenu.hidden) { event.preventDefault(); showMainMenu(); }
       return;
@@ -2574,6 +2955,11 @@ function createGameAudio() {
     if (state.paused || state.ended) return;
     keys.add(event.code);
     if (event.repeat) return;
+    if (network.mode === 'guest') {
+      network.actions ||= {};
+      const action = { KeyR: 'reload', KeyE: 'ability', KeyT: 'switchAbility' }[event.code];
+      if (action) network.actions[action] = (network.actions[action] || 0) + 1;
+    }
     if (event.code === 'Space') startDash();
     if (event.code === 'KeyQ') switchWeapon(player.weapon === 'katana' ? 'pistol' : 'katana');
     if (event.code === 'Digit1') switchWeapon('rifle');
@@ -2626,6 +3012,7 @@ function createGameAudio() {
   }
   function showMainMenu() {
     closeNetwork();
+    document.getElementById('roomSettings').hidden = true;
     clearRunGear();
     state.menu = true; state.paused = false; state.ended = false; clearInput(); hideOptionalPanels();
     ui.mainMenu.hidden = false; ui.roomPanel.hidden = true; ui.gameSetup.hidden = true; ui.settingsPanel.hidden = true; if (ui.keybindPanel) ui.keybindPanel.hidden = true;
@@ -2642,8 +3029,8 @@ function createGameAudio() {
   }
   function startHostGame() {
     if (network.mode !== 'host' || !network.roomId) return networkLabel('房间尚未创建完成');
-    state.mapType = 'rooms'; state.mode = 'infinite'; state.playerMaxHp = DEFAULT_PLAYER_HP; state.enemyCount = 72; state.challengeRespawns = 3;
-    state.respawnsRemaining = Infinity; restart(); state.menu = false; ui.mainMenu.hidden = true; ui.roomPanel.hidden = true; ui.overlay.hidden = true; ui.hud.inert = false; network.ready = true; network.gameStarted = true; notice('房主已开始多人行动'); broadcastSnapshot();
+    applyRules(); network.gameStarted = true; network.ready = true;
+    restart(); state.menu = false; ui.mainMenu.hidden = true; ui.roomPanel.hidden = true; ui.overlay.hidden = true; ui.hud.inert = false; notice('房主已开始多人行动'); broadcastSnapshot();
   }
   function chooseMap(mapType) {
     state.mapType = mapType === 'rainforest' ? 'rainforest' : 'rooms';
@@ -2728,6 +3115,9 @@ function createGameAudio() {
   ui.returnMenu?.addEventListener('click', showMainMenu);
   ui.restart.addEventListener('click', restart);
   function restart() {
+    if (network.mode === 'guest') { notice('只有房主可以重开'); return; }
+    const members = [...remotePlayers.keys()];
+    if (network.mode === 'host') { applyRules(); network.round++; chipDrops.length = 0; }
     state.time = 0; state.won = false; state.lost = false; state.ended = false; state.paused = false; endElapsed = 0; hudCooldown = 0; state.deaths = 0; state.kills = 0; state.shotsFired = 0; state.airdrops = 0; state.nextAirdropKill = 10; state.nextBlueAirdropAt = 60;
     state.monsterTier = 0; state.nextMonsterAt = MONSTER_INTERVAL; state.globalAlert = 0; monster = null; remotePlayers.clear();
     stealthChip.active = false; stealthChip.picked = false; sandevistanChip.active = false; sandevistanChip.picked = false;
@@ -2740,6 +3130,14 @@ function createGameAudio() {
     let ready = false;
     for (let attempt = 0; attempt < 30 && !ready; attempt++) ready = makeMap();
     if (!ready) throw new Error('Map generation could not produce a connected layout.');
+    if (network.mode === 'host') {
+      equipRoomPlayer(player); network.pending.clear();
+      for (const id of members) {
+        const room = rooms[Math.floor(Math.random() * rooms.length)];
+        remotePlayers.set(id, makeRemotePlayer(id, safePointInRoom(room) || { x: player.x, y: player.y }));
+      }
+      for (const connection of allConnections()) if (remotePlayers.has(connection.peer)) sendMapTo(connection);
+    }
     buildMapLayer(); updateHUD(); ui.overlay.hidden = true; ui.pause.textContent = '暂停'; if (ui.resume) ui.resume.hidden = false; if (ui.replay) ui.replay.hidden = true; if (ui.returnMenu) ui.returnMenu.hidden = true; if (ui.pauseKeybinds) ui.pauseKeybinds.hidden = true; if (ui.endStats) ui.endStats.hidden = true;
   }
   restart();
@@ -2753,6 +3151,9 @@ function createGameAudio() {
   requestAnimationFrame(frame);
   // Offline QA injects a collector; no debug interface is exposed in ordinary play.
   if (typeof globalThis.__collectGame === 'function') globalThis.__collectGame({
+    network, remotePlayers, localPlayer, chipDrops, makeMap, acceptPosition, sendGuestInput, updateRemotePlayer, makeRemotePlayer,
+    applyGameSnapshot, gameSnapshot, mapSnapshot, restoreMap, respawnMultiplayer, weaponAllowed, startHostGame,
+    get roomRules() { return roomRules; }, set roomRules(value) { roomRules = value; }, applyRules,
     player, state, walls, openings, rooms, crates, pillars, enemies, keys, pointer, camera,
     GUNS, BODY_WIDTH, DASH_DISTANCE, SWORD_RANGE, PROJECTILE_RANGE_BLOCKS, projectileRange, PILLAR_SIZE, CORPSE_TTL, COLS, ROWS,
     get ROOM_W() { return ROOM_W; }, get ROOM_H() { return ROOM_H; }, get WORLD_W() { return WORLD_W; }, get WORLD_H() { return WORLD_H; },
