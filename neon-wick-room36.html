@@ -69,6 +69,19 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 #roomSettingsStatus{font-size:12px;min-height:18px;white-space:normal}
 #roomNumber{display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:480px){.room-fields{grid-template-columns:1fr}#roomSettings{padding:10px}}
+@media(max-width:640px){
+  #wrap{width:100vw;height:100dvh;aspect-ratio:auto}
+  #game{position:absolute;top:50%;height:auto;aspect-ratio:1100/690;transform:translateY(-50%)}
+  #abilityHud{top:12px;left:8px}
+  .top{top:86px;left:8px;right:8px;gap:6px 10px;padding:8px}
+  #compass{left:8px;bottom:114px;width:96px;height:96px;padding:8px}
+  #compassCanvas{width:78px;height:78px}
+  .bottom{gap:8px;padding:8px}
+  .weapons{flex-wrap:wrap;max-width:100%;min-width:0}
+  .tools{flex-wrap:wrap}
+  #notice{top:172px;max-width:calc(100% - 16px);white-space:normal;text-align:center}
+  .menu-panel{max-height:calc(100dvh - 24px);overflow:auto}
+}
 </style>
 </head>
 <body>
@@ -186,7 +199,8 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 <tr><td>菜单导航（浏览器支持时）</td><td><kbd>Tab</kbd><kbd>Enter</kbd></td></tr>
 </tbody></table>
 </div>
-</div>
+<div class="settings-panel-actions"><button id="closeSettings" type="button">返回</button></div>
+</section>
 </div>
 <div id="keybindPanel" hidden>
 <section class="menu-panel" aria-labelledby="keybindTitle">
@@ -213,9 +227,6 @@ button:hover{background:#ffffff12}button:focus-visible{outline:2px solid #edce78
 <tr><td>结束后再来一局</td><td><kbd>鼠标点击</kbd></td></tr>
 <tr><td>菜单导航（浏览器支持时）</td><td><kbd>Tab</kbd><kbd>Enter</kbd></td></tr>
 </tbody></table><div class="settings-panel-actions"><button id="closeKeybinds" type="button">返回</button></div>
-</section>
-</div>
-<div class="settings-panel-actions"><button id="closeSettings" type="button">返回</button></div>
 </section>
 </div>
 <div id="hud">
@@ -518,20 +529,197 @@ function createGameAudio() {
   const remotePlayers = new Map();
   const network = { mode: 'single', peer: null, connection: null, joinTimer: null, joining: false, roomId: '', localId: '', connections: new Map(), input: new Map(), ready: false, gameStarted: false, snapshotClock: 0, inputClock: 0, sequence: 0 };
   Object.assign(network, { lastInputAt: -Infinity, inputSeq: 0, pending: new Map(), lastPingAt: -Infinity, lastPong: 0, ping: 0, round: 0 });
+  Object.assign(network, { fireSeq: 0, motionX: 0, motionY: 0, correctionX: 0, correctionY: 0, lastStateSeq: -1, lastNpcSeq: -1, lastKillSeq: -1 });
   const seenFire = new Map();
+  const predictedHits = new Map();
+  const waitingFire = new Map();
   let receivingFire = false;
   function sendGameMessage(message) {
     if (network.peer?.socket.connected) network.peer.socket.emit('relay', { message });
   }
   function emitFire(actor, weapon, x, y, angle) {
-    if (!multiplayer() || receivingFire) return;
-    sendGameMessage({ type: 'fireEvent', id: `${network.localId}:${++network.fireSeq}`,
-      actorId: actor === localPlayer ? network.localId : actor.id, weapon, x, y, angle,
-      timestamp: Date.now(), round: network.round, spawnVersion: actor.spawnVersion });
+    if (!multiplayer() || receivingFire || actor !== localPlayer) return null;
+    const event = { type: 'fireEvent', id: `${network.localId}:${network.round}:${++network.fireSeq}`,
+      actorId: network.localId, weapon, x, y, angle,
+      timestamp: Date.now(), round: network.round, spawnVersion: actor.spawnVersion };
+    sendGameMessage(event);
+    return event.id;
+  }
+  function validPosition(actor) {
+    return actor && Number.isFinite(actor.x) && Number.isFinite(actor.y) &&
+      actor.x >= -BORDER && actor.y >= -BORDER && actor.x <= WORLD_W + BORDER && actor.y <= WORLD_H + BORDER;
+  }
+  function resetPrediction() {
+    network.pending.clear(); network.motionX = network.motionY = 0;
+    network.correctionX = network.correctionY = 0; network.lastAck = 0;
+  }
+  function followLocalPlayer() {
+    if (!validPosition(localPlayer)) {
+      const point = validPosition(network.safePosition) ? network.safePosition : { x: ROOM_W / 2, y: ROOM_H / 2 };
+      localPlayer.x = point.x; localPlayer.y = point.y; resetPrediction();
+    }
+    camera.x = clamp(localPlayer.x, W / 2 - BORDER, WORLD_W + BORDER - W / 2);
+    camera.y = clamp(localPlayer.y, H / 2 - BORDER, WORLD_H + BORDER - H / 2);
+  }
+  function applyServerPlayer(data, initial = false) {
+    if (!data?.id || !validPosition(data) || !Number.isFinite(data.hp) ||
+        !Number.isSafeInteger(data.spawnVersion)) return;
+    const own = data.id === network.localId;
+    let actor = own ? localPlayer : remotePlayers.get(data.id);
+    if (!actor) { actor = makeRemotePlayer(data.id, data); actor.spawnVersion = data.spawnVersion; remotePlayers.set(data.id, actor); }
+    if (!initial && (data.spawnVersion < (actor.spawnVersion || 0) || (data.rev ?? 0) < (actor.netRev ?? -1))) return;
+    const respawned = data.spawnVersion !== actor.spawnVersion;
+    actor.netRev = data.rev ?? (initial ? 0 : actor.netRev ?? 0);
+    actor.hp = data.hp; actor.maxHp = data.maxHp || state.playerMaxHp;
+    for (const key of ['hasStealth', 'hasSandevistan', 'hasGatling', 'hasNailgun'])
+      if (typeof data[key] === 'boolean') actor[key] = data[key];
+    if (own && Number.isFinite(data.rewardCount) && data.rewardCount > (actor.rewardCount || 0)) refillAllWeapons();
+    if (Number.isFinite(data.rewardCount)) actor.rewardCount = data.rewardCount;
+    if (!actor.selectedAbility) actor.selectedAbility = actor.hasSandevistan ? 'sandevistan' : actor.hasStealth ? 'stealth' : null;
+    if (!own) for (const key of ['stealthActive', 'sandevistanActive']) if (typeof data[key] === 'boolean') actor[key] = data[key];
+    for (const key of ['deaths', 'enemyKills', 'pvpKills', 'grace']) if (Number.isFinite(data[key])) actor[key] = data[key];
+    if (own) {
+      const sent = network.pending.get(data.ack);
+      if (respawned || initial) {
+        actor.x = data.x; actor.y = data.y; actor.swing = null; actor.reload = null;
+        actor.stealthActive = false; actor.sandevistanActive = false; actor.burnRemaining = 0;
+        actor.expired = false; actor.deadAt = null; actor.draw = 0; actor.cooldown = 0;
+        resetPrediction(); stopDash(false);
+        withPlayer(actor, refillAllWeapons);
+      } else if (sent && data.ack > network.lastAck) {
+        // Replay only actual movement since the sample, never earlier network corrections.
+        let x = data.x + network.motionX - sent.motionX, y = data.y + network.motionY - sent.motionY;
+        if (!validPosition({ x, y }) || blocked(x, y, actor.r)) { x = data.x; y = data.y; }
+        const dx = x - actor.x, dy = y - actor.y;
+        if (!validPosition(actor) || Math.hypot(dx, dy) > BODY_WIDTH * 3) {
+          actor.x = x; actor.y = y; network.correctionX = network.correctionY = 0;
+        } else { network.correctionX = dx; network.correctionY = dy; }
+      }
+      network.lastAck = Math.max(network.lastAck, data.ack || 0);
+      for (const seq of network.pending.keys()) if (seq <= network.lastAck) network.pending.delete(seq);
+      network.safePosition = { x: data.x, y: data.y };
+      state.deaths = actor.deaths || 0;
+      followLocalPlayer();
+    } else {
+      if (respawned || initial) {
+        actor.x = data.x; actor.y = data.y; actor.swing = null;
+        actor.renderX = data.x; actor.renderY = data.y;
+      }
+      actor.targetX = data.x; actor.targetY = data.y;
+      actor.lastSeen = Math.max(actor.lastSeen ?? -Infinity, performance.now() - Math.max(0, data.silenceMs || 0));
+      if (Number.isFinite(data.angle)) actor.angle = data.angle;
+      if (GUNS[data.weapon] || data.weapon === 'katana') actor.weapon = data.weapon;
+      if (Number.isFinite(data.walk)) actor.walk = data.walk;
+    }
+    actor.spawnVersion = data.spawnVersion;
+  }
+  function applyNpcUpdate(message) {
+    if (message.round !== network.round || !Number.isSafeInteger(message.seq) || message.seq <= network.lastNpcSeq) return;
+    network.lastNpcSeq = message.seq;
+    if (Number.isFinite(message.timeScale)) network.timeScale = clamp(message.timeScale, 0.2, 1);
+    if (Number.isFinite(message.time)) state.time = Math.max(state.time, message.time);
+    if (Number.isFinite(message.nextMonsterAt)) state.nextMonsterAt = message.nextMonsterAt;
+    if (Number.isFinite(message.monsterTier)) state.monsterTier = message.monsterTier;
+    if (Array.isArray(message.crates)) for (let i = 0; i < crates.length && i < message.crates.length; i++) {
+      if (Number.isFinite(message.crates[i].hp)) crates[i].hp = Math.min(crates[i].hp, message.crates[i].hp);
+    }
+    const previous = new Map(enemies.map(actor => [actor.id, actor]));
+    enemies.length = 0;
+    for (const data of message.enemies || []) {
+      if (!data.id || !validPosition(data) || !Number.isFinite(data.hp)) continue;
+      const old = previous.get(data.id), actor = old || { ...data, x: data.x, y: data.y, r: data.r || 12 };
+      const hit = actor.hit || 0, muzzle = actor.muzzle || 0;
+      const x = actor.x, y = actor.y;
+      if ((data.rev ?? 0) >= (actor.netRev ?? -1)) Object.assign(actor, data, { netRev: data.rev || 0 });
+      Object.assign(actor, { x, y, targetX: data.x, targetY: data.y, hit, muzzle, path: [], wait: 0, cooldown: 0 });
+      enemies.push(actor);
+    }
+    if (message.monster && validPosition(message.monster)) {
+      const old = monster?.id === message.monster.id ? monster : null;
+      if (!old || (message.monster.rev ?? 0) >= (old.netRev ?? -1))
+        monster = { ...message.monster, netRev: message.monster.rev || 0, x: old?.x ?? message.monster.x, y: old?.y ?? message.monster.y,
+          targetX: message.monster.x, targetY: message.monster.y, hit: old?.hit || 0 };
+    } else monster = null;
+    flushWaitingFire();
+  }
+  function predictHit(target, shot) {
+    if (!multiplayer() || !shot?.fireId || target.hp <= 0) return;
+    const targetId = target === localPlayer ? network.localId : target.id;
+    if (!targetId) return;
+    const key = `${shot.fireId}:${shot.pellet || 0}:${targetId}`;
+    if (predictedHits.has(key)) return;
+    predictedHits.set(key, performance.now());
+    if (predictedHits.size > 2048) predictedHits.delete(predictedHits.keys().next().value);
+    impact(target.x, target.y, '#dc444f', 10); target.hit = Math.max(target.hit || 0, 0.18);
+    if (target === localPlayer) { camera.shake = Math.max(camera.shake, 6); network.hurtFlash = 0.2; }
+    const ownerId = shot.actorId || shot.shooter?.id;
+    if (ownerId === network.localId || (target === localPlayer && (ownerId?.startsWith('enemy-') || shot.shooter?.boss)))
+      sendGameMessage({ type: 'hitClaim', round: network.round, fireId: shot.fireId, targetId, pellet: shot.pellet || 0 });
+  }
+  function applyKillConfirm(message) {
+    if (message.round !== network.round || !Number.isSafeInteger(message.seq) || message.seq <= network.lastKillSeq) return;
+    network.lastKillSeq = message.seq;
+    const target = message.targetId === network.localId ? localPlayer : remotePlayers.get(message.targetId) ||
+      enemies.find(actor => actor.id === message.targetId) || (monster?.id === message.targetId ? monster : null);
+    if (target && ![...predictedHits.keys()].some(key => key.startsWith(`${message.fireId}:`) && key.endsWith(`:${message.targetId}`))) {
+      impact(target.x, target.y, '#dc444f', 10); target.hit = 0.18;
+      if (target === localPlayer) network.hurtFlash = 0.2;
+    }
+    if (message.target && target) {
+      if (target === localPlayer || remotePlayers.has(target.id)) applyServerPlayer(message.target);
+      else if ((message.target.rev ?? 0) >= (target.netRev ?? -1)) Object.assign(target, message.target, { netRev: message.target.rev || 0 });
+    }
+    if (message.shooter && (message.shooter.id === network.localId || remotePlayers.has(message.shooter.id))) applyServerPlayer(message.shooter);
+    if (message.killed) {
+      state.kills++;
+      const defeated = message.target || target;
+      if (network.mode === 'host' && defeated?.boss && roomRules.combat === 'pvevp')
+        chipDrops.push({ x: defeated.x, y: defeated.y, ability: defeated.tier % 2 ? 'stealth' : 'sandevistan' });
+      const killer = message.shooterId === network.localId ? localPlayer : remotePlayers.get(message.shooterId);
+      if (network.mode === 'host' && killer && roomRules.combat === 'pvevp' &&
+          message.targetId?.startsWith('enemy-') && !defeated?.boss && killer.enemyKills > (killer.rewardedKills || 0)) {
+        killer.pendingDrops = (killer.pendingDrops || 0) + Math.floor(killer.enemyKills / 10) - Math.floor((killer.rewardedKills || 0) / 10);
+        killer.rewardedKills = killer.enemyKills;
+      }
+    }
+    updateHUD();
+  }
+  function handleGameMessage({ from, message } = {}) {
+    if (!message || typeof message.type !== 'string') return;
+    const now = performance.now();
+    if (from === network.roomId) network.lastHostSeen = now;
+    if (from === 'server') network.lastServerSeen = now;
+    const remote = remotePlayers.get(from);
+    if (remote) remote.lastSeen = now;
+    switch (message.type) {
+      case 'heartbeat': return;
+      case 'ping':
+        if (from !== 'server') return;
+        if (Number.isFinite(message.rtt)) {
+          network.ping = Math.round(message.rtt);
+          console.log(`[Neon Wick] ping RTT: ${network.ping} ms`);
+        } else if (message.nonce) sendGameMessage({ type: 'ping', nonce: message.nonce });
+        return;
+      case 'fireEvent': receiveFire(message, from); return;
+      case 'playerState':
+        if (from !== 'server' || !network.ready || message.round !== network.round ||
+            !Number.isSafeInteger(message.seq) || message.seq <= network.lastStateSeq) return;
+        network.lastStateSeq = message.seq;
+        for (const actor of message.players || []) {
+          if (actor.id !== network.localId && actor.silenceMs > 4000) continue;
+          applyServerPlayer(actor);
+          if (actor.id === network.roomId) network.lastHostSeen = Math.max(network.lastHostSeen, now - Math.max(0, actor.silenceMs || 0));
+        }
+        flushWaitingFire();
+        return;
+      case 'npcUpdate': if (from === 'server' && network.ready) applyNpcUpdate(message); return;
+      case 'killConfirm': if (from === 'server' && network.ready) applyKillConfirm(message); return;
+    }
   }
   function networkMaintenance() {
     if (!multiplayer()) return;
     const now = performance.now();
+    for (const [id, event] of waitingFire) if (now - event.at > 2000) waitingFire.delete(id);
     if (now - (network.lastHeartbeatAt ?? -Infinity) >= 1500) {
       network.lastHeartbeatAt = now;
       sendGameMessage({ type: 'heartbeat', timestamp: now });
@@ -547,17 +735,7 @@ function createGameAudio() {
     network.heartbeatTimer = setInterval(networkMaintenance, 250);
     peer.on('game-message', packet => {
       if (network.peer !== peer) return;
-      const { from, message } = packet;
-      if (!message || !['heartbeat', 'fireEvent'].includes(message.type)) return;
-      const now = performance.now();
-      if (from === network.roomId) network.lastHostSeen = now;
-      const remote = remotePlayers.get(from);
-      if (remote) remote.lastSeen = now;
-      if (message.type === 'heartbeat') {
-        if (from === network.localId) console.log(`[Neon Wick] ping RTT: ${Math.round(now - message.timestamp)} ms (relay)`);
-        return;
-      }
-      receiveFire(message, from);
+      handleGameMessage(packet);
     });
   }
   function receiveFire(message, from) {
@@ -565,23 +743,20 @@ function createGameAudio() {
         message.actorId === network.localId || ![message.x, message.y, message.angle, message.timestamp].every(Number.isFinite)) return;
     const key = `${from}:${message.id}`;
     if (seenFire.has(key)) return;
+    const actor = remotePlayers.get(message.actorId) || (from === 'server' && (enemies.find(e => e.id === message.actorId) ||
+      (monster?.id === message.actorId ? monster : null)));
+    if (!actor) {
+      if (!waitingFire.has(key)) waitingFire.set(key, { message, from, at: performance.now() });
+      if (waitingFire.size > 128) waitingFire.delete(waitingFire.keys().next().value);
+      return;
+    }
+    waitingFire.delete(key);
+    if (actor.hp <= 0 || (Number.isSafeInteger(message.spawnVersion) && message.spawnVersion !== actor.spawnVersion)) return;
     seenFire.set(key, true);
     if (seenFire.size > 2048) seenFire.delete(seenFire.keys().next().value);
-    const actor = remotePlayers.get(message.actorId) || (from === network.roomId && enemies.find(e => e.id === message.actorId));
-    if (!actor || actor.hp <= 0) return;
-    if (network.mode === 'host' && (actor.id !== from || message.spawnVersion !== actor.spawnVersion ||
-        !weaponAllowed(message.weapon, actor) || Math.hypot(actor.x - message.x, actor.y - message.y) > BODY_WIDTH * 8)) return;
     receivingFire = true;
     try {
-      if (network.mode === 'host') {
-        withPlayer(actor, () => {
-          if (actor.cooldown > 0.025 || actor.reload || actor.draw > 0) return;
-          actor.angle = message.angle; actor.weapon = message.weapon;
-          actor.input.weapon = message.weapon;
-          if (message.weapon === 'katana') startSlash();
-          else shoot(actor, message.weapon, message.angle, false, message);
-        });
-      } else if (message.weapon === 'katana') {
+      if (message.weapon === 'katana') {
         actor.weapon = 'katana'; actor.swing = { elapsed: 0, angle: message.angle };
         sound('slash', 0.6, actor.x);
       } else {
@@ -589,6 +764,9 @@ function createGameAudio() {
         shoot(actor, message.weapon, message.angle, true, message);
       }
     } finally { receivingFire = false; }
+  }
+  function flushWaitingFire() {
+    for (const event of [...waitingFire.values()]) receiveFire(event.message, event.from);
   }
   const rain = [];
   let bullets = [], debris = [], sparks = [], trails = [], ghosts = [], dashTrails = [], stealthTrails = [], sandevistanParticles = [], explosions = [], nails = [], mapLayer;
@@ -645,7 +823,7 @@ function createGameAudio() {
     networkLabel(`设置已保存 · ${roomRules.combat.toUpperCase()}`);
   });
   const relayAddress = document.getElementById('relayAddress');
-  relayAddress.value = 'https://neon-wick-online.onrender.com';
+  relayAddress.value = ['localhost', '127.0.0.1'].includes(location.hostname) ? location.origin : 'https://neon-wick-online.onrender.com';
   let relayLoadAttempt = 0;
   async function loadRelay() {
     const attempt = ++relayLoadAttempt;
@@ -732,25 +910,27 @@ function createGameAudio() {
       pillars, chipDrops,
       time: state.time, paused: state.paused, ended: state.ended, won: state.won, lost: state.lost, kills: state.kills, deaths: state.deaths,
       shotsFired: state.shotsFired, nextMonsterAt: state.nextMonsterAt, monsterTier: state.monsterTier, globalAlert: state.globalAlert,
-      player: actorSnapshot(player, network.localId || 'host'), playerMaxHp: state.playerMaxHp,
+      player: actorSnapshot(localPlayer, network.localId || 'host'), playerMaxHp: state.playerMaxHp,
       players: [...remotePlayers.values()].map(remote => actorSnapshot(remote, remote.id)),
-      enemies: enemies.map(enemy => actorSnapshot(enemy, enemy.id)),
-      monster: monster ? { ...monster } : null, crates: crates.map(crate => ({ x: crate.x, y: crate.y, w: crate.w, h: crate.h, hp: crate.hp, shrub: crate.shrub, room: crate.room })),
+      crates: crates.map(crate => ({ x: crate.x, y: crate.y, w: crate.w, h: crate.h, hp: crate.hp, shrub: crate.shrub, room: crate.room })),
       walls: walls.map(wall => ({ x: wall.x, y: wall.y, w: wall.w, h: wall.h, hp: wall.hp, maxHp: wall.maxHp, vine: wall.vine })),
       airdrops: airdrops.map(drop => ({ ...drop, smoke: [] }))
     };
   }
   function sendMapTo(connection) {
+    initializeServerRound();
     netSend(connection, { type: 'map', roomId: network.roomId, localId: connection.peer, map: mapSnapshot(), snapshot: gameSnapshot() });
+  }
+  function initializeServerRound() {
+    sendGameMessage({ type: 'map', roomId: network.roomId, map: mapSnapshot(), snapshot: gameSnapshot() });
   }
   function broadcastSnapshot() {
     if (network.mode !== 'host') return;
     const now = performance.now();
     if (now - (network.lastSnapshotAt ?? -Infinity) < 60) return;
     network.lastSnapshotAt = now;
-    if (now - network.lastPingAt >= 2000) { network.hostPing = now; network.lastPingAt = now; }
     const snapshot = { type: 'playerState', seq: ++network.sequence, snapshot: gameSnapshot() };
-    for (const connection of allConnections()) netSend(connection, snapshot);
+    sendGameMessage(snapshot);
   }
   function restoreMap(data) {
     state.mapType = data.mapType === 'rainforest' ? 'rainforest' : 'rooms';
@@ -763,56 +943,31 @@ function createGameAudio() {
     nav = { size: 10, cols: 1, rows: 1, free: new Uint8Array([1]), cells: [], dirty: false, routeCache: new Map() };
     mapLayerDirty = true; buildMapLayer();
   }
-  function applyGameSnapshot(data) {
+  function applyGameSnapshot(data, initial = false) {
     if (!data) return;
     if (data.rules) { roomRules = { ...data.rules }; applyRules(); }
-    network.echoHostPing = data.hostPing || 0;
     if (data.started && !network.gameStarted) {
       network.gameStarted = true; state.menu = false; state.paused = false;
       ui.mainMenu.hidden = true; ui.roomPanel.hidden = true; ui.hud.inert = false;
     }
-    state.playerMaxHp = data.playerMaxHp || state.playerMaxHp; state.time = Number(data.time) || 0; state.ended = !!data.ended; state.won = !!data.won; state.lost = !!data.lost;
-    state.kills = data.kills || 0; state.deaths = data.deaths || 0; state.shotsFired = data.shotsFired || 0; state.nextMonsterAt = data.nextMonsterAt || MONSTER_INTERVAL; state.monsterTier = data.monsterTier || 0; state.globalAlert = data.globalAlert || 0;
-    const localPlayer = data.players?.find(actor => actor.id === network.localId);
-    if (localPlayer && network.mode === 'guest') {
-      const sent = network.pending.get(localPlayer.ack);
-      const respawned = player.spawnVersion !== localPlayer.spawnVersion;
-      if (respawned || !network.ready) {
-        player.x = localPlayer.x; player.y = localPlayer.y;
-        player.spawnVersion = localPlayer.spawnVersion; player.swing = null; player.reload = null;
-        network.pending.clear(); clearInput();
-      } else if (sent) {
-        // Reapply movement predicted after the acknowledged position sample.
-        const x = localPlayer.x + player.x - sent.x, y = localPlayer.y + player.y - sent.y;
-        player.x = blocked(x, y, player.r) ? localPlayer.x : x;
-        player.y = blocked(x, y, player.r) ? localPlayer.y : y;
-      }
-      for (const seq of network.pending.keys()) if (seq <= localPlayer.ack) network.pending.delete(seq);
-      player.hp = localPlayer.hp; player.hit = localPlayer.hit || 0;
-      for (const key of ['hasStealth', 'hasSandevistan', 'hasGatling', 'hasNailgun', 'deaths', 'enemyKills', 'pvpKills']) player[key] = localPlayer[key];
-      if (localPlayer.ammo && (respawned || !network.ready || player.rewardCount !== localPlayer.rewardCount)) player.ammo = structuredClone(localPlayer.ammo);
-      player.rewardCount = localPlayer.rewardCount;
-      if (state.mode === 'infinite' && player.ammo.gatling) player.ammo.gatling = { mag: Infinity, reserve: Infinity };
-      if (!player.selectedAbility) player.selectedAbility = player.hasSandevistan ? 'sandevistan' : player.hasStealth ? 'stealth' : null;
-      if (localPlayer.ping && localPlayer.ping !== network.lastPong) {
-        network.lastPong = localPlayer.ping; network.ping = Math.round(performance.now() - localPlayer.ping);
-        console.log(`[Neon Wick] ping RTT: ${network.ping} ms (client-relay-host)`);
-      }
+    state.playerMaxHp = data.playerMaxHp || state.playerMaxHp;
+    if (Number.isFinite(data.time)) state.time = initial ? data.time : Math.max(state.time, data.time);
+    state.ended = !!data.ended; state.won = !!data.won; state.lost = !!data.lost;
+    state.nextMonsterAt = data.nextMonsterAt || MONSTER_INTERVAL; state.monsterTier = data.monsterTier || 0; state.globalAlert = data.globalAlert || 0;
+    const actors = [...(data.players || []), ...(data.player ? [data.player] : [])];
+    if (initial) for (const actor of actors) applyServerPlayer(actor, true);
+    // Host world packets carry gear and scenery only. They cannot correct position or health.
+    for (const data of actors) {
+      const actor = data.id === network.localId ? localPlayer : remotePlayers.get(data.id);
+      if (!actor) continue;
+      for (const key of ['hasStealth', 'hasSandevistan', 'hasGatling', 'hasNailgun']) if (typeof data[key] === 'boolean') actor[key] = data[key];
+      if (actor === localPlayer && (initial || (Number.isFinite(data.rewardCount) && actor.rewardCount !== data.rewardCount))) refillAllWeapons();
+      if (Number.isFinite(data.rewardCount)) actor.rewardCount = data.rewardCount;
+      if (!actor.selectedAbility) actor.selectedAbility = actor.hasSandevistan ? 'sandevistan' : actor.hasStealth ? 'stealth' : null;
     }
     if (network.mode === 'guest') {
-      for (const remote of [...(data.players || []), ...(data.player ? [data.player] : [])]) {
-        if (!remote.id || remote.id === network.localId) continue;
-        const old = remotePlayers.get(remote.id);
-        const snap = !old || old.spawnVersion !== remote.spawnVersion;
-        remotePlayers.set(remote.id, { ...remote, swing: snap ? null : old.swing,
-          lastSeen: Math.max(old?.lastSeen ?? -Infinity, performance.now() - Math.max(0, remote.silenceMs || 0)),
-          muzzle: Math.max(old?.muzzle || 0, remote.muzzle || 0), x: snap ? remote.x : old.x, y: snap ? remote.y : old.y,
-          targetX: remote.x, targetY: remote.y, r: remote.r || RADIUS, maxHp: remote.maxHp || state.playerMaxHp });
-      }
-      enemies.length = 0; enemies.push(...(data.enemies || []).map(enemy => ({ ...enemy, path: [], wait: 0, cooldown: 0, r: enemy.r || 12 })));
       if (data.walls) { for (let i = 0; i < walls.length && i < data.walls.length; i++) { if (walls[i].hp !== data.walls[i].hp) mapLayerDirty = true; walls[i].hp = data.walls[i].hp; } }
       if (data.crates) { for (let i = 0; i < crates.length && i < data.crates.length; i++) crates[i].hp = data.crates[i].hp; }
-      monster = data.monster ? { ...data.monster } : null;
       if (data.pillars && data.pillars.length !== pillars.length) { pillars.splice(0, pillars.length, ...data.pillars); mapLayerDirty = true; }
       airdrops.splice(0, airdrops.length, ...(data.airdrops || []));
       chipDrops.splice(0, chipDrops.length, ...(data.chipDrops || []));
@@ -835,11 +990,6 @@ function createGameAudio() {
         if (!input || !Number.isFinite(input.x) || !Number.isFinite(input.y) || !Number.isFinite(input.angle) ||
             !Number.isSafeInteger(input.seq) || input.seq <= (remote.ack || 0)) return;
         remote.input = { ...input, keys: Array.isArray(input.keys) ? input.keys.slice(0, 4) : [] };
-        remote.ping = Number.isFinite(input.ping) ? input.ping : 0;
-        if (input.echoHostPing === network.hostPing && network.hostPing && remote.lastPong !== input.echoHostPing) {
-          remote.lastPong = input.echoHostPing;
-          console.log(`[Neon Wick] ${remote.id} ping RTT: ${Math.round(performance.now() - input.echoHostPing)} ms (host-relay-client)`);
-        }
         remote.lastSeen = performance.now();
       } else if (message.type === 'leave') {
         network.connections.delete(connection.peer);
@@ -853,13 +1003,16 @@ function createGameAudio() {
         if (!message.map || !message.snapshot || message.localId !== network.peer.id ||
             !message.snapshot.players?.some(actor => actor.id === message.localId)) throw new Error('无效的房间初始化数据');
         network.localId = message.localId; network.roomId = connection.peer; network.round = message.snapshot.round;
-        network.pending.clear(); network.actions = {}; network.lastInputAt = -Infinity;
-        bullets.length = 0; trails.length = 0; seenFire.clear();
+        resetPrediction(); network.actions = {}; network.lastInputAt = -Infinity;
+        network.lastStateSeq = network.lastNpcSeq = network.lastKillSeq = -1;
+        network.inputSeq = 0; localPlayer.id = network.localId;
+        localPlayer.netRev = -1;
+        bullets.length = 0; trails.length = 0; seenFire.clear(); predictedHits.clear(); waitingFire.clear(); remotePlayers.clear();
         player.hasStealth = false; player.hasSandevistan = false; player.selectedAbility = null;
         player.stealthActive = false; player.sandevistanActive = false; player.weapon = 'pistol';
         refillAllWeapons();
         network.ready = false;
-        restoreMap(message.map); applyGameSnapshot(message.snapshot);
+        restoreMap(message.map); applyGameSnapshot(message.snapshot, true);
         clearTimeout(network.joinTimer); network.joinTimer = null; network.joining = false;
         network.ready = true; ui.roomAction.disabled = false; ui.roomAction.textContent = '连接';
         state.menu = !message.snapshot.started; state.paused = false; clearInput();
@@ -876,6 +1029,10 @@ function createGameAudio() {
     clearTimeout(network.joinTimer);
     clearInterval(network.heartbeatTimer); network.heartbeatTimer = null;
     seenFire.clear();
+    waitingFire.clear();
+    predictedHits.clear(); resetPrediction(); network.safePosition = null;
+    network.lastStateSeq = network.lastNpcSeq = network.lastKillSeq = -1;
+    network.hurtFlash = 0; localPlayer.id = '';
     const peer = network.peer, connections = [...network.connections.values()];
     // Invalidate callbacks before close/destroy can synchronously emit events.
     network.peer = null; network.connection = null; network.joinTimer = null; network.joining = false;
@@ -914,7 +1071,7 @@ function createGameAudio() {
       peer.on('open', id => {
         if (network.peer !== peer) return;
         clearTimeout(network.joinTimer); network.joinTimer = null;
-        network.roomId = id; network.localId = id; ui.roomIdDisplay.textContent = id;
+        network.roomId = id; network.localId = id; localPlayer.id = id; ui.roomIdDisplay.textContent = id;
         ui.roomAction.disabled = false; networkLabel('房间已创建，请先开始游戏');
       });
       peer.on('connection', connection => {
@@ -979,23 +1136,23 @@ function createGameAudio() {
     } catch (error) { failNetwork(peerErrorText(error)); }
   }
   function sendGuestInput() {
-    if (network.mode !== 'guest' || !network.connection?.open || !network.ready) return;
+    if (!multiplayer() || player !== localPlayer || !network.ready || !network.gameStarted || !validPosition(localPlayer)) return;
     const now = performance.now();
     if (now - network.lastInputAt < 60) return;
     network.lastInputAt = now;
-    if (now - network.lastPingAt >= 2000) { network.pingToken = now; network.lastPingAt = now; }
     const seq = ++network.inputSeq;
-    network.pending.set(seq, { x: player.x, y: player.y });
+    network.pending.set(seq, { x: player.x, y: player.y, motionX: network.motionX, motionY: network.motionY });
     if (network.pending.size > 180) network.pending.delete(network.pending.keys().next().value);
-    netSend(network.connection, { type: 'playerState', input: { seq, x: player.x, y: player.y, spawnVersion: player.spawnVersion,
+    sendGameMessage({ type: 'playerState', round: network.round, input: { seq, x: player.x, y: player.y, spawnVersion: player.spawnVersion,
       keys: [...keys].filter(code => ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(code)), angle: player.angle,
       weapon: player.weapon, dash: player.dashActive,
-      ping: network.pingToken, echoHostPing: network.echoHostPing, actions: network.actions || {} } });
+      stealthActive: player.stealthActive, sandevistanActive: player.sandevistanActive, actions: network.actions || {} } });
     pointer.justPressed = false;
   }
   function makeRemotePlayer(id, spawn) {
     const actor = { ...structuredClone(localPlayer), ...spawn, id, maxHp: state.playerMaxHp, hp: state.playerMaxHp,
-      swing: null, reload: null, cooldown: 0, draw: 0, dashActive: false, input: {}, ack: 0, lastMoveAt: performance.now(), lastSeen: performance.now(),
+      swing: null, reload: null, cooldown: 0, draw: 0, dashActive: false, input: {}, ack: 0, netRev: -1, rewardedKills: 0,
+      lastMoveAt: performance.now(), lastSeen: performance.now(),
       hasStealth: false, hasSandevistan: false, stealthActive: false, sandevistanActive: false, selectedAbility: null, actions: {} };
     equipRoomPlayer(actor);
     withPlayer(actor, refillAllWeapons);
@@ -1072,6 +1229,8 @@ function createGameAudio() {
     return dx * dx + dy * dy < r * r;
   }
   function hardBlocked(x, y, r) {
+    if (![x, y, r].every(Number.isFinite) || x < -BORDER + r || y < -BORDER + r ||
+        x > WORLD_W + BORDER - r || y > WORLD_H + BORDER - r) return true;
     return walls.some(o => wallActive(o) && circleRect(x, y, r, o)) || pillars.some(o => circleRect(x, y, r, o));
   }
   function blocked(x, y, r) {
@@ -1379,7 +1538,7 @@ function createGameAudio() {
     for (const rect of pillars) accept(rayRect(ox, oy, dx, dy, limit, rect), rect, 'pillar');
     for (const rect of crates) if (rect.hp > 0) accept(rayRect(ox, oy, dx, dy, limit, rect), rect, 'crate');
     if (actors) {
-      if (shooter !== player) accept(rayCircle(ox, oy, dx, dy, limit, player), player, 'actor');
+      if (shooter !== player && player.hp > 0) accept(rayCircle(ox, oy, dx, dy, limit, player), player, 'actor');
       for (const remote of remotePlayers.values()) if (remote.hp > 0 && remote !== shooter) accept(rayCircle(ox, oy, dx, dy, limit, remote), remote, 'actor');
       for (const enemy of enemies) if (enemy.hp > 0 && enemy !== shooter) accept(rayCircle(ox, oy, dx, dy, limit, enemy), enemy, 'actor');
       if (monster && !monster.dead && monster !== shooter) accept(rayCircle(ox, oy, dx, dy, limit, monster), monster, 'actor');
@@ -1461,11 +1620,13 @@ function createGameAudio() {
       camera.shake = weapon === 'gatling' ? Math.max(camera.shake, 14) : Math.min(9, camera.shake + (weapon === 'rifle' ? 4.5 : 5.5));
     }
     const angle = angleOverride == null ? shooter.angle : angleOverride;
+    const fireId = visualOnly ? origin.id : emitFire(shooter, weapon, origin.x, origin.y, angle);
     const angles = weapon === 'nailgun' ? [angle - 0.075, angle, angle + 0.075] : [angle];
-    for (const shotAngle of angles) {
+    for (const [pellet, shotAngle] of angles.entries()) {
       const allied = shooter === player || (multiplayer() && participants().includes(shooter));
       const enemyRocket = !allied && weapon === 'rocket';
-      const bullet = { id: `bullet-${network.sequence++}-${Math.random().toString(36).slice(2, 7)}`, x: origin.x, y: origin.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (allied ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
+      const bullet = { id: `bullet-${network.sequence++}-${Math.random().toString(36).slice(2, 7)}`, fireId, pellet,
+        actorId: shooter === localPlayer ? network.localId : shooter.id, x: origin.x, y: origin.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (allied ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
     // Continuous weapons can otherwise create thousands of short-lived objects
     // while the mouse is held. Keep a bounded projectile window and discard the
     // oldest ordinary round before it can affect the current shot.
@@ -1480,7 +1641,6 @@ function createGameAudio() {
       sound('gun', shooter === player ? 0.7 : 0.35, shooter.x, weapon === 'rocket' || weapon === 'gatling' ? 'rifle' : weapon);
       if (shooter === player) player.shotAudioCooldown = weapon === 'gatling' ? 0.08 : 0.035;
     }
-    if (!visualOnly) emitFire(shooter, weapon, origin.x, origin.y, angle);
     return true;
   }
   function startSlash() {
@@ -1490,7 +1650,9 @@ function createGameAudio() {
     stopDash(false);
     // Iai dash: the draw-cut instantly carries the player forward four body widths.
     const startX = player.x, startY = player.y;
-    player.swing = { elapsed: 0, angle: player.angle, hit: new Set(), previous: -1.25, blinkStartX: startX, blinkStartY: startY };
+    const fireId = emitFire(player, 'katana', startX, startY, player.angle);
+    player.swing = { elapsed: 0, angle: player.angle, hit: new Set(), previous: -1.25, blinkStartX: startX, blinkStartY: startY,
+      fireId, actorId: network.localId };
     const step = SLASH_BLINK_DISTANCE / 12;
     for (let i = 0; i < 12; i++) {
       const fromX = player.x, fromY = player.y;
@@ -1503,7 +1665,8 @@ function createGameAudio() {
         const across = Math.abs((enemy.x - startX) * Math.sin(player.angle) - (enemy.y - startY) * Math.cos(player.angle));
         const crossed = segmentDistance(enemy.x, enemy.y, fromX, fromY, nx, ny) <= player.r + enemy.r;
         if (along >= 0 && along <= SLASH_BLINK_DISTANCE && across <= player.r + enemy.r && crossed) {
-          damage(enemy, 150, true, player); player.swing.hit.add(enemy);
+          if (multiplayer()) predictHit(enemy, player.swing); else damage(enemy, 150, true, player);
+          player.swing.hit.add(enemy);
         }
       }
       player.x = nx; player.y = ny;
@@ -1513,7 +1676,6 @@ function createGameAudio() {
     ghosts.push({ x: (player.swing.blinkStartX + player.x) / 2, y: (player.swing.blinkStartY + player.y) / 2, angle: player.angle, life: 0.16 * GHOST_LIFE_SCALE });
     player.cooldown = 0.42;
     sound('slash', 0.8);
-    emitFire(player, 'katana', startX, startY, player.angle);
     return true;
   }
   function updateSlash(dt) {
@@ -1534,6 +1696,7 @@ function createGameAudio() {
         if (obstruction && obstruction.object !== target) continue;
         swing.hit.add(target);
         if (target.kind === 'crate') breakCrate(target, Math.cos(swing.angle), Math.sin(swing.angle));
+        else if (multiplayer()) predictHit(target, swing);
         else damage(target, Infinity, true, player);
         camera.shake = Math.max(camera.shake, 4);
       }
@@ -1577,6 +1740,10 @@ function createGameAudio() {
       const remaining = Math.max(0, DASH_DISTANCE - player.dashDistanceMoved);
       const oldX = player.x, oldY = player.y;
       const moved = moveDash(remaining);
+      if (multiplayer() && player === localPlayer) {
+        network.motionX += player.x - oldX; network.motionY += player.y - oldY;
+        followLocalPlayer();
+      }
       if (moved > 0) {
         ghosts.push({ x: oldX, y: oldY, angle: player.angle, life: 0.12 * GHOST_LIFE_SCALE });
         ghosts.push({ x: player.x, y: player.y, angle: player.angle, life: 0.12 * GHOST_LIFE_SCALE });
@@ -1630,17 +1797,7 @@ function createGameAudio() {
     for (let i = 0; i < Math.min(count, available); i++) sparks.push({ x, y, vx: rand(-90, 90), vy: rand(-90, 90), life: rand(0.12, 0.35), color });
   }
   function damage(target, amount, effects = true, owner = activeDamageOwner) {
-    if (network.mode === 'guest') return;
-    if (multiplayer() && participants().includes(target)) {
-      if (target.hp <= 0 || target.grace > 0) return;
-      target.hp = Math.max(0, target.hp - amount); target.hit = 0.12;
-      if (effects) impact(target.x, target.y, '#f8d67c');
-      if (!target.hp) {
-        if (owner && owner !== target && participants().includes(owner)) owner.pvpKills = (owner.pvpKills || 0) + 1;
-        respawnMultiplayer(target);
-      }
-      return;
-    }
+    if (multiplayer()) return;
     if (target === player && player.grace > 0) return;
     if (target.hp <= 0) return;
     const wasAlive = target.hp > 0;
@@ -1687,6 +1844,7 @@ function createGameAudio() {
     }
   }
   function respawnMultiplayer(actor) {
+    if (multiplayer()) return;
     actor.deaths = (actor.deaths || 0) + 1;
     actor.spawnVersion = (actor.spawnVersion || 0) + 1;
     actor.swing = null; actor.reload = null; actor.dashActive = false; actor.cooldown = 0;
@@ -1718,10 +1876,9 @@ function createGameAudio() {
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 25, life: 0.18, maxLife: 0.18, color: '#fff1a8', flash: true });
     // A hot red shockwave sells the impact while respecting the one-second TTL.
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 10, life: ROCKET_EFFECT_TTL, maxLife: ROCKET_EFFECT_TTL, color: '#ff3b23', ring: true });
-    if (network.mode === 'guest') return;
     if (multiplayer()) {
       for (const target of [...participants(), ...enemies, ...(monster && !monster.dead ? [monster] : [])]) {
-        if (target !== bullet.shooter && target.hp > 0 && Math.hypot(target.x - x, target.y - y) <= ROCKET_BLAST_RADIUS) damage(target, bullet.damage, false, bullet.shooter);
+        if (target !== bullet.shooter && target.hp > 0 && Math.hypot(target.x - x, target.y - y) <= ROCKET_BLAST_RADIUS) predictHit(target, bullet);
       }
     } else if (bullet.shooter === player || remotePlayers.has(bullet.shooter?.id)) {
       for (const enemy of enemies) if (enemy.hp > 0 && Math.hypot(enemy.x - x, enemy.y - y) <= ROCKET_BLAST_RADIUS) damage(enemy, bullet.damage, false);
@@ -1730,6 +1887,7 @@ function createGameAudio() {
       if (Math.hypot(player.x - x, player.y - y) <= ROCKET_BLAST_RADIUS) damage(player, bullet.damage, false);
       for (const remote of remotePlayers.values()) if (Math.hypot(remote.x - x, remote.y - y) <= ROCKET_BLAST_RADIUS) damage(remote, bullet.damage, false);
     }
+    if (network.mode === 'guest') return;
     for (const crate of crates) if (crate.hp > 0 && Math.hypot(clamp(x, crate.x, crate.x + crate.w) - x, clamp(y, crate.y, crate.y + crate.h) - y) <= ROCKET_BLAST_RADIUS) breakCrate(crate, (crate.x - x) / 50, (crate.y - y) / 50);
     let destroyed = 0;
     for (const wall of walls) {
@@ -1763,8 +1921,9 @@ function createGameAudio() {
     notice('重新整备'); updateHUD();
   }
   function advanceBullet(bullet, distance, effects = true) {
-    if (network.mode === 'guest' && bullet.shooter?.id) {
-      bullet.shooter = remotePlayers.get(bullet.shooter.id) || enemies.find(e => e.id === bullet.shooter.id) || bullet.shooter;
+    if (multiplayer() && bullet.shooter?.id) {
+      bullet.shooter = (bullet.actorId === network.localId ? localPlayer : null) || remotePlayers.get(bullet.shooter.id) ||
+        enemies.find(e => e.id === bullet.shooter.id) || (monster?.id === bullet.shooter.id ? monster : null) || bullet.shooter;
     }
     if (bullet.weapon === 'gatling') return advanceGatling(bullet, distance, effects);
     if (bullet.weapon === 'laser') return advanceLaserBullet(bullet, distance, effects);
@@ -1799,6 +1958,7 @@ function createGameAudio() {
         bullet.alive = false;
         if (bullet.weapon === 'rocket') explode(bullet.x, bullet.y, bullet);
         else if (hit.kind === 'crate') breakCrate(hit.object, bullet.dx, bullet.dy);
+        else if (multiplayer()) predictHit(hit.object, bullet);
         else damage(hit.object, bullet.damage);
       }
     }
@@ -1833,7 +1993,7 @@ function createGameAudio() {
       if (hit.kind === 'crate') {
         if (hit.object.shrub || hit.object.tumbleweed) breakCrate(hit.object, bullet.dx, bullet.dy);
       } else if (hit.kind === 'actor') {
-        damage(hit.object, bullet.damage);
+        if (multiplayer()) predictHit(hit.object, bullet); else damage(hit.object, bullet.damage);
       } else if (effects) {
         impact(bullet.x, bullet.y, '#ff4b56', 5);
       }
@@ -1850,7 +2010,7 @@ function createGameAudio() {
     for (const wall of walls) if (wallActive(wall) && !bullet.pierced?.has(wall)) accept(rayRect(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, wall), wall, 'wall');
     for (const p of pillars) accept(rayRect(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, p), p, 'pillar');
     for (const c of crates) if (c.hp > 0) accept(rayRect(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, c), c, 'crate');
-    if (bullet.shooter !== player) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, player), player, 'actor');
+    if (bullet.shooter !== player && player.hp > 0) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, player), player, 'actor');
     for (const remote of remotePlayers.values()) if (remote.hp > 0 && remote !== bullet.shooter) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, remote), remote, 'actor');
     for (const e of enemies) if (e.hp > 0 && e !== bullet.shooter) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, e), e, 'actor');
     if (monster && !monster.dead && monster !== bullet.shooter) accept(rayCircle(bullet.x, bullet.y, bullet.dx, bullet.dy, limit, monster), monster, 'actor');
@@ -1889,7 +2049,7 @@ function createGameAudio() {
         bullet.alive = false;
         if (!previewSegments) {
           if (hit.kind === 'crate') breakCrate(hit.object, bullet.dx, bullet.dy);
-      else if (hit.kind === 'actor') damage(hit.object, bullet.damage);
+          else if (hit.kind === 'actor') { if (multiplayer()) predictHit(hit.object, bullet); else damage(hit.object, bullet.damage); }
           else if (effects) impact(bullet.x, bullet.y, '#ff6470', 4);
         }
       }
@@ -1906,7 +2066,7 @@ function createGameAudio() {
     const candidates = nav.cells.filter(c => Math.hypot(c.x - recipient.x, c.y - recipient.y) <= radius && Math.hypot(c.x - recipient.x, c.y - recipient.y) >= BODY_WIDTH * 2 && !blocked(c.x, c.y, 23) && !crates.some(o => o.hp > 0 && circleRect(c.x, c.y, 23, o)));
     if (!candidates.length) return false;
     const point = candidates[Math.floor(Math.random() * candidates.length)];
-    const airdrop = { spawned: true, kind, ownerId: kind === 'red' ? (recipient.id || network.localId) : null, x: point.x, y: point.y, altitude: 160, landed: false, claimed: false, smokeUntil: 0, smoke: [], emit: 0 };
+    const airdrop = { id: `drop-${network.round}-${++network.sequence}`, spawned: true, kind, ownerId: kind === 'red' ? (recipient.id || network.localId) : null, x: point.x, y: point.y, altitude: 160, landed: false, claimed: false, smokeUntil: 0, smoke: [], emit: 0 };
     airdrops.push(airdrop);
     notice(kind === 'special' ? '蓝色特种空投抵达：回满生命并补满所有武器弹药' : kind === 'gatling' ? '武器空投抵达：加特林' : kind === 'nailgun' ? '武器空投抵达：射钉枪' : '武器空投抵达'); return true;
   }
@@ -1921,7 +2081,8 @@ function createGameAudio() {
     }
     for (const airdrop of airdrops) updateAirdropItem(dt, airdrop);
     for (let i = airdrops.length - 1; i >= 0; i--) {
-      if (airdrops[i].claimed && !airdrops[i].smoke.length) airdrops.splice(i, 1);
+      if (airdrops[i].claimed && !airdrops[i].smoke.length &&
+          (!multiplayer() || performance.now() - (airdrops[i].claimedAt || 0) >= 1500)) airdrops.splice(i, 1);
     }
   }
   function updateAirdropItem(dt, airdrop) {
@@ -1941,7 +2102,7 @@ function createGameAudio() {
     if (multiplayer() && airdrop.landed && !airdrop.claimed) {
       const actor = participants().find(p => p.hp > 0 && (!airdrop.ownerId || airdrop.ownerId === (p.id || network.localId)) && Math.hypot(p.x - airdrop.x, p.y - airdrop.y) <= 36);
       if (actor) {
-        airdrop.claimed = true; actor.hp = state.playerMaxHp; actor.reload = null;
+        airdrop.claimed = true; airdrop.claimedAt = performance.now(); airdrop.claimedById = actor.id || network.localId; actor.reload = null;
         actor.rewardCount = (actor.rewardCount || 0) + 1; withPlayer(actor, refillAllWeapons);
       }
     }
@@ -2216,6 +2377,13 @@ function createGameAudio() {
   }
 
   function updatePlayer(dt) {
+    if (multiplayer() && player === localPlayer) {
+      followLocalPlayer();
+      const alpha = 1 - Math.exp(-18 * dt);
+      const dx = network.correctionX * alpha, dy = network.correctionY * alpha;
+      if (!blocked(player.x + dx, player.y + dy, player.r)) { player.x += dx; player.y += dy; }
+      network.correctionX -= dx; network.correctionY -= dy;
+    }
     if (multiplayer() && player.hp <= 0) {
       if (player === localPlayer) { updateAim(dt); sendGuestInput(); }
       return;
@@ -2296,10 +2464,7 @@ function createGameAudio() {
     }
     player.walk += moved * 0.16; player.step += moved;
     if (player.step >= 31) { player.step %= 31; sound('footstep', 0.45); }
-    if (player === localPlayer) {
-      camera.x = clamp(player.x, W / 2 - BORDER, WORLD_W + BORDER - W / 2);
-      camera.y = clamp(player.y, H / 2 - BORDER, WORLD_H + BORDER - H / 2);
-    }
+    if (player === localPlayer) followLocalPlayer();
     updateAim(dt);
     updateSlash(dt);
     const wantsFire = player.weapon === 'laser' ? pointer.justPressed : pointer.left;
@@ -2308,11 +2473,15 @@ function createGameAudio() {
       else if (shoot(player, player.weapon) && player.weapon === 'laser') pointer.justPressed = false;
     }
     if (GUNS[player.weapon] && player.ammo[player.weapon].mag === 0 && !player.reload) reload();
+    if (multiplayer() && player === localPlayer) {
+      network.motionX += player.x - oldX; network.motionY += player.y - oldY;
+      followLocalPlayer();
+    }
     sendGuestInput();
   }
   function updateRemotePlayer(remote, dt) {
     if (remote.hp <= 0) return;
-    acceptPosition(remote);
+    if (!multiplayer()) acceptPosition(remote);
     const savedKeys = [...keys], savedPointer = { ...pointer }, savedCamera = { ...camera };
     const input = remote.input || {};
     keys.clear(); pointer.left = false; pointer.justPressed = false;
@@ -2386,6 +2555,7 @@ function createGameAudio() {
     } else { enemy.path = []; enemy.wait = 0.3; }
   }
   function updateEffects(dt) {
+    network.hurtFlash = Math.max(0, (network.hurtFlash || 0) - dt);
     const drag = Math.exp(-5 * dt);
     for (const piece of debris) {
       const nx = piece.x + piece.vx * dt, ny = piece.y + piece.vy * dt;
@@ -2455,17 +2625,31 @@ function createGameAudio() {
     state.time += dt;
     state.globalAlert = Math.max(0, state.globalAlert - dt);
     updateWeather(dt);
-    if (network.mode === 'guest') {
+    if (multiplayer()) {
       updatePlayer(dt);
-      for (const actor of remotePlayers.values()) {
+      if (network.mode === 'host') {
+        updateAirdrop(dt);
+        for (let i = chipDrops.length - 1; i >= 0; i--) {
+          const chip = chipDrops[i], actor = participants().find(p => p.hp > 0 && Math.hypot(p.x - chip.x, p.y - chip.y) <= p.r + 18);
+          if (!actor) continue;
+          actor[chip.ability === 'stealth' ? 'hasStealth' : 'hasSandevistan'] = true;
+          if (!actor.selectedAbility) actor.selectedAbility = chip.ability;
+          chipDrops.splice(i, 1);
+        }
+      }
+      for (const actor of [...remotePlayers.values(), ...enemies, ...(monster ? [monster] : [])]) {
         const alpha = 1 - Math.exp(-14 * dt);
         actor.x += ((actor.targetX ?? actor.x) - actor.x) * alpha;
         actor.y += ((actor.targetY ?? actor.y) - actor.y) * alpha;
+        actor.renderX = actor.x; actor.renderY = actor.y;
+        actor.hit = Math.max(0, (actor.hit || 0) - dt);
         actor.muzzle = Math.max(0, (actor.muzzle || 0) - dt);
         if (actor.swing && (actor.swing.elapsed += dt) >= SWING_TIME) actor.swing = null;
       }
-      for (const bullet of bullets) advanceBullet(bullet, bullet.speed * dt);
+      const timeScale = network.timeScale ?? (localPlayer.sandevistanActive ? state.sandevistanTimeScale : 1);
+      for (const bullet of bullets) advanceBullet(bullet, bullet.speed * dt * (bullet.actorId === network.localId ? 1 : timeScale));
       bullets = bullets.filter(bullet => bullet.alive);
+      if (mapLayerDirty) { buildMapLayer(); mapLayerDirty = false; }
       updateEffects(dt);
       hudCooldown -= dt; if (hudCooldown <= 0) updateHUD();
       return;
@@ -2982,6 +3166,10 @@ function createGameAudio() {
     const mx = Math.round(pointer.x), my = Math.round(pointer.y);
     ctx.beginPath(); ctx.moveTo(mx - 7, my); ctx.lineTo(mx - 3, my); ctx.moveTo(mx + 3, my); ctx.lineTo(mx + 7, my); ctx.moveTo(mx, my - 7); ctx.lineTo(mx, my - 3); ctx.moveTo(mx, my + 3); ctx.lineTo(mx, my + 7); ctx.stroke();
     if (player.hit > 0) { ctx.strokeStyle = '#cc6b59'; ctx.lineWidth = 6; ctx.strokeRect(3, 3, W - 6, H - 6); }
+    if (network.hurtFlash > 0) {
+      ctx.save(); ctx.fillStyle = `rgba(190,20,35,${network.hurtFlash * 0.7})`;
+      ctx.fillRect(0, 0, W, H); ctx.restore();
+    }
   }
 
   function clearInput() { stopDash(false); keys.clear(); pointer.buttons = 0; pointer.left = pointer.right = false; pointer.justPressed = false; }
@@ -3042,7 +3230,7 @@ function createGameAudio() {
     if (state.paused || state.ended) return;
     keys.add(event.code);
     if (event.repeat) return;
-    if (network.mode === 'guest') {
+    if (multiplayer()) {
       network.actions ||= {};
       const action = { KeyR: 'reload', KeyE: 'ability', KeyT: 'switchAbility' }[event.code];
       if (action) network.actions[action] = (network.actions[action] || 0) + 1;
@@ -3218,11 +3406,15 @@ function createGameAudio() {
     for (let attempt = 0; attempt < 30 && !ready; attempt++) ready = makeMap();
     if (!ready) throw new Error('Map generation could not produce a connected layout.');
     if (network.mode === 'host') {
-      equipRoomPlayer(player); network.pending.clear();
+      equipRoomPlayer(player); resetPrediction(); network.inputSeq = 0;
+      network.lastStateSeq = network.lastNpcSeq = network.lastKillSeq = -1;
+      player.netRev = -1; player.id = network.localId;
+      seenFire.clear(); predictedHits.clear(); waitingFire.clear();
       for (const id of members) {
         const room = rooms[Math.floor(Math.random() * rooms.length)];
         remotePlayers.set(id, makeRemotePlayer(id, safePointInRoom(room) || { x: player.x, y: player.y }));
       }
+      initializeServerRound();
       for (const connection of allConnections()) if (remotePlayers.has(connection.peer)) sendMapTo(connection);
     }
     buildMapLayer(); updateHUD(); ui.overlay.hidden = true; ui.pause.textContent = '暂停'; if (ui.resume) ui.resume.hidden = false; if (ui.replay) ui.replay.hidden = true; if (ui.returnMenu) ui.returnMenu.hidden = true; if (ui.pauseKeybinds) ui.pauseKeybinds.hidden = true; if (ui.endStats) ui.endStats.hidden = true;
@@ -3238,7 +3430,8 @@ function createGameAudio() {
   requestAnimationFrame(frame);
   // Offline QA injects a collector; no debug interface is exposed in ordinary play.
   if (typeof globalThis.__collectGame === 'function') globalThis.__collectGame({
-    networkMaintenance, receiveFire, bindGameplay,
+    networkMaintenance, receiveFire, bindGameplay, handleGameMessage, applyServerPlayer, applyNpcUpdate, applyKillConfirm,
+    predictHit, resetPrediction, followLocalPlayer, validPosition,
     network, remotePlayers, localPlayer, chipDrops, makeMap, acceptPosition, sendGuestInput, updateRemotePlayer, makeRemotePlayer,
     applyGameSnapshot, gameSnapshot, mapSnapshot, restoreMap, respawnMultiplayer, weaponAllowed, startHostGame,
     get roomRules() { return roomRules; }, set roomRules(value) { roomRules = value; }, applyRules,
@@ -3249,7 +3442,7 @@ function createGameAudio() {
     update, draw, updateHUD, shoot, switchWeapon, reload, refillAllWeapons, respawn, damage, updateAim, screenToWorld, cameraScreenOffset,
     airdrops, get airdrop() { return airdrops[airdrops.length - 1]; }, spawnAirdrop, updateAirdrop, resetAirdrop, advanceGatling, spawnMonster, updateMonster, activateStealth, stealthChip,
     get monster() { return monster; }, drawCompass,
-    advanceBullet, cast, preview, rayRect, blocked, hardBlocked, startDash, startSlash, breakCrate, restart, finishRun,
+    advanceBullet, cast, preview, rayRect, blocked, hardBlocked, startDash, stopDash, startSlash, breakCrate, restart, finishRun,
     get bullets() { return bullets; }, get nails() { return nails; }, get debris() { return debris; }, get explosions() { return explosions; }, get nav() { return nav; }, get trails() { return trails; }, get dashTrails() { return dashTrails; }, get sandevistanParticles() { return sandevistanParticles; }
   });
 })();

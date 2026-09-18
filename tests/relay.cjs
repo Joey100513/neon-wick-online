@@ -9,9 +9,9 @@ assert.ok(!html.includes('peerjs'));
 assert.ok(!html.includes('new Peer('));
 const scope = vm.createContext({ window: { io } });
 vm.runInContext(html.slice(html.indexOf('  class RelayEvents'), html.indexOf('  function netSend')) + '\nthis.Client = RelayClient;', scope);
-const once = (emitter, name) => new Promise((resolve, reject) => {
+const once = (emitter, name, accept = () => true) => new Promise((resolve, reject) => {
   const timer = setTimeout(() => reject(new Error('Timeout: ' + name)), 3000);
-  emitter.on(name, value => { clearTimeout(timer); resolve(value); });
+  emitter.on(name, value => { if (accept(value)) { clearTimeout(timer); resolve(value); } });
 });
 async function run() {
   const relay = createRelay(), clients = [];
@@ -34,24 +34,37 @@ async function run() {
     guestChannel.send({ type: 'join', protocol: 1 });
     assert.equal((await join).type, 'join');
     const map = once(guestChannel, 'data');
-    hostChannel.send({ type: 'map', map: { walls: [] }, localId: guest.id });
+    const actor = (id, x) => ({ id, x, y: 200, hp: 80, maxHp: 80, r: 13, spawnVersion: 1, weapon: 'pistol' });
+    const level = { mapType: 'desert', cols: 3, rows: 2, roomW: 440, roomH: 340, worldW: 1320, worldH: 680,
+      walls: [], pillars: [], crates: [], enemies: [], openings: [], rooms: [{ x: 0, y: 0, col: 0, row: 0 }] };
+    const initial = { round: 1, started: true, time: 0,
+      rules: { combat: 'pvp', mapType: 'desert', playerMaxHp: 80, mode: 'infinite', playerDamageMultiplier: 1 },
+      player: actor(code, 200), players: [actor(guest.id, 300)] };
+    host.socket.emit('relay', { message: { type: 'map', map: level, snapshot: initial } });
+    hostChannel.send({ type: 'map', map: level, snapshot: initial, localId: guest.id });
     assert.equal((await map).localId, guest.id);
     const input = once(hostChannel, 'data');
-    guestChannel.send({ type: 'playerState', input: { keys: ['KeyW'] } });
+    guestChannel.send({ type: 'playerState', round: 1, input: { seq: 1, x: 300, y: 200, angle: 0, weapon: 'pistol', spawnVersion: 1, keys: ['KeyW'] } });
     assert.equal((await input).input.keys[0], 'KeyW');
     const snapshot = once(guestChannel, 'data');
-    hostChannel.send({ type: 'playerState', snapshot: { enemies: [{ x: 30 }] } });
-    assert.equal((await snapshot).snapshot.enemies[0].x, 30);
+    host.socket.emit('relay', { message: { type: 'playerState', seq: 1, snapshot: { ...initial, enemies: [{ x: 30 }], time: 5 } } });
+    assert.equal((await snapshot).snapshot.time, 5);
     const guest2 = client(); await once(guest2, 'open');
     const channel2 = guest2.connect(code); await once(channel2, 'open');
-    const hostFire = once(host, 'game-message'), otherFire = once(guest2, 'game-message');
-    guest.socket.emit('relay', { message: { type: 'fireEvent', id: 'shot1', actorId: 'forged',
-      weapon: 'katana', x: 1, y: 2, angle: 0, timestamp: 123, round: 1, bullets: [{ x: 999 }] } });
+    const guest2Map = once(channel2, 'data', m => m.type === 'map');
+    host.channels.get(guest2.id).send({ type: 'map', map: level, snapshot: { ...initial,
+      players: [...initial.players, actor(guest2.id, 500)] }, localId: guest2.id });
+    await guest2Map;
+    const hostFire = once(host, 'game-message', p => p.message.type === 'fireEvent');
+    const otherFire = once(guest2, 'game-message', p => p.message.type === 'fireEvent');
+    guest.socket.emit('relay', { message: { type: 'fireEvent', id: 'shot1', actorId: guest.id,
+      weapon: 'katana', x: 300, y: 200, angle: 0, timestamp: Date.now(), round: 1, spawnVersion: 1, bullets: [{ x: 999 }] } });
     const fire = await hostFire;
     assert.equal(fire.message.actorId, guest.id);
     assert.equal((await otherFire).message.id, 'shot1');
     assert.equal('bullets' in fire.message, false);
-    const heartbeat = once(host, 'game-message'), echo = once(guest, 'game-message');
+    const heartbeat = once(host, 'game-message', p => p.message.type === 'heartbeat');
+    const echo = once(guest, 'game-message', p => p.message.type === 'heartbeat');
     guest.socket.emit('relay', { message: { type: 'heartbeat', timestamp: 456 } });
     assert.equal((await heartbeat).from, guest.id);
     assert.equal((await echo).message.timestamp, 456);

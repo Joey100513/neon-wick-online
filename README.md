@@ -44,10 +44,13 @@ Do not deploy this as a short-lived serverless function.
 ## Room Rules and Movement
 
 The HTML defaults to `https://neon-wick-online.onrender.com`.
-Deploy BOTH `server.cjs` to Render and the complete `neon-wick-room36.html`
+When served on localhost, it uses that local server for previews instead.
+Deploy BOTH `server.js` (plus `package.json`) to Render and the complete `neon-wick-room36.html`
 to every player's frontend. This version changes gameplay message types;
 an old relay will reject the new messages. Room registration and joining
 keep the same workflow and room codes.
+Start with `npm start` or `node server.js`; `server.cjs` is a compatibility
+entry point for older Render start commands. No remote deployment is automatic.
 
 Room Settings contains PVP/PVEVP, map, enemy count, health, respawn rules,
 respawn count, both damage multipliers, stealth/dash duration, and optional
@@ -62,33 +65,49 @@ PVEVP bosses keep dropping alternating ability chips. Each player's every
 health and ammunition. Friendly fire includes projectiles, rockets, and melee
 where melee is available. Challenge lives are tracked per player.
 
-Guest position/input packets include x/y and an increasing sequence ID and
+All player position/input packets include x/y, a life version, and an increasing sequence ID and
 are throttled to 60ms. Local movement is predicted immediately, acknowledged
-position corrections preserve movement made since the packet, and remote
-actors interpolate toward received positions. Host snapshots are also
-throttled to 60ms. Ping RTT through client-relay-host is logged every 2 seconds;
-it is not a one-way latency or a server-only ping. The host bounds/checks
-movement against collision but this is not a production anti-cheat system.
+position corrections replay only actual movement since the sample, excluding
+previous corrections. Remote players/NPCs interpolate toward received positions.
+Server player snapshots are throttled to 60ms and NPC snapshots to 80ms.
+Sequence/life/revision checks reject reordered and previous-life state.
+Finite bounds, a saved valid position, and camera recovery prevent invalid
+packets or broken perimeter walls from losing the local character.
+Ping uses server-generated nonces and measured RTT, not trusted client latency.
 
 ## Behavior and limits
 
-Gameplay packets are separated into `playerState`, `fireEvent`, and
-`heartbeat`. Shooting immediately creates local projectiles, muzzle effects,
+Gameplay packets are separated into `playerState`, `fireEvent`, `heartbeat`,
+`ping`, `hitClaim`, `npcUpdate`, and `killConfirm`.
+Shooting immediately creates local projectiles, muzzle effects,
 trails, and shake. Fire events carry origin, angle, timestamp, weapon, event
 ID, actor ID, round, and spawn version; the relay never simulates projectiles
-or sends their positions. All browsers simulate projectiles locally, while
-the host browser decides damage and sends health/world state. Snapshots never
+or sends their positions. All browsers simulate visual projectiles locally.
+Blood and a red damage flash are predicted effects only; clients never apply
+multiplayer damage, death, or respawn themselves. Snapshots never
 replace live projectiles. Duplicate fire events are ignored.
+
+The backend saves two seconds of entity positions, associates each claim
+with a previously validated fire event, and rewinds to the shot receipt time
+minus half of its server-measured RTT. It ray-tests historical entities and
+cover, computes weapon damage, and broadcasts `killConfirm` for accepted
+hits (including `killed: false` for a nonlethal hit).
+Claims cannot choose damage or arbitrary timestamps. Duplicate hits, stale
+rounds/lives, impossible origins, and cross-room claims are rejected.
+NPC movement, firing, health, and player respawns now run on the backend.
+Host browsers still generate maps, display room settings, and supply scenery
+and item updates; this is not a complete anti-cheat/security boundary against
+a malicious room host.
 
 Every client sends a heartbeat every 1.5 seconds independently of the render
 loop. Remote actors remain visible until more than four seconds without
-data, including when omitted from a snapshot. Heartbeat echoes also log
-client-relay RTT. Browser suspension can still prevent timers from running.
+data, including when omitted from a snapshot. Independent ping messages log
+client-server RTT. Browser suspension can still prevent timers from running.
 Katana is available in all multiplayer maps with the existing Q binding;
 remote sword swings are rendered too.
 
 - No PeerJS, WebRTC, STUN, or TURN is used.
-- Socket.IO forwards game messages; the room host still simulates the game.
+- Socket.IO transports game messages; the server owns combat and NPCs.
 - Up to eight players per room. The original single-player mode is retained.
 - Guests may join the lobby before the host starts; the start packet supplies
   the new map, loadouts, and final rules to all members.
@@ -110,5 +129,10 @@ remote sword swings are rendered too.
 npm test
 ```
 
-Tests use real Socket.IO clients and the HTML's connection adapter to exercise
-room creation/joining, message relay, failures, isolation, and disconnects.
+Tests cover 12,000 prediction/correction cycles, single-player behavior,
+visual-only hit feedback, server health authority, room workflows, lag
+compensation, stale/replayed claims, and liveness.
+`tests/browser-game.cjs` additionally uses Playwright Chromium (installed
+separately) for two browser contexts, actual room UI, Canvas pixels,
+and desktop/mobile screenshots. Set `PLAYWRIGHT_MODULE` to the installed
+Playwright module if it is not in local `node_modules`.
