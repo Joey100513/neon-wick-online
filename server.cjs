@@ -46,10 +46,31 @@ function createRelay() {
       // Route by server-owned room membership, never by caller-supplied sender IDs.
       const target = socket.data.host ? room.guests.get(packet.target) : packet.target === socket.data.room ? room.host : null;
       const type = packet.message?.type;
-      if (!target || !(socket.data.host ? ['map', 'snapshot', 'reject'] : ['join', 'input', 'leave']).includes(type)) return;
       const now = Date.now();
       if (!socket.data.window || now - socket.data.window > 1000) { socket.data.window = now; socket.data.count = 0; }
       if (++socket.data.count > 500) return;
+      if (type === 'heartbeat' || type === 'fireEvent') {
+        const from = socket.data.host ? socket.data.room : socket.id;
+        const m = packet.message;
+        let message;
+        if (type === 'heartbeat') {
+          message = { type, timestamp: Number.isFinite(m.timestamp) ? m.timestamp : 0 };
+        } else {
+          if (!['pistol', 'rifle', 'rocket', 'laser', 'gatling', 'nailgun', 'katana'].includes(m.weapon) ||
+              ![m.x, m.y, m.angle, m.timestamp, m.round].every(Number.isFinite) ||
+              typeof m.id !== 'string' || m.id.length > 100 ||
+              typeof m.actorId !== 'string' || m.actorId.length > 100) return;
+          if (socket.data.host && m.actorId !== from && !/^enemy-/.test(m.actorId)) return;
+          message = { type, id: m.id, actorId: socket.data.host ? m.actorId : from,
+            x: m.x, y: m.y, angle: m.angle, timestamp: m.timestamp, weapon: m.weapon,
+            round: m.round, spawnVersion: m.spawnVersion };
+        }
+        for (const recipient of [room.host, ...room.guests.values()]) {
+          if (recipient !== socket || type === 'heartbeat') recipient.emit('game-message', { from, message });
+        }
+        return;
+      }
+      if (!target || !(socket.data.host ? ['map', 'playerState', 'reject'] : ['join', 'playerState', 'leave']).includes(type)) return;
       target.emit('relay', { from: socket.data.host ? socket.data.room : socket.id, message: packet.message });
     });
     socket.on('close-channel', target => {

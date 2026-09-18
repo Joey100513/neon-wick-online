@@ -505,7 +505,7 @@ function createGameAudio() {
   function weaponAllowed(name, actor = player) {
     if (!multiplayer()) return true;
     if (['pistol', 'rifle', 'rocket'].includes(name)) return true;
-    if (name === 'katana') return state.mapType !== 'desert';
+    if (name === 'katana') return true;
     return name === 'laser' ? roomRules.laser : name === 'nailgun' ? actor.hasNailgun : name === 'gatling' ? actor.hasGatling : false;
   }
   function equipRoomPlayer(actor) {
@@ -518,6 +518,78 @@ function createGameAudio() {
   const remotePlayers = new Map();
   const network = { mode: 'single', peer: null, connection: null, joinTimer: null, joining: false, roomId: '', localId: '', connections: new Map(), input: new Map(), ready: false, gameStarted: false, snapshotClock: 0, inputClock: 0, sequence: 0 };
   Object.assign(network, { lastInputAt: -Infinity, inputSeq: 0, pending: new Map(), lastPingAt: -Infinity, lastPong: 0, ping: 0, round: 0 });
+  const seenFire = new Map();
+  let receivingFire = false;
+  function sendGameMessage(message) {
+    if (network.peer?.socket.connected) network.peer.socket.emit('relay', { message });
+  }
+  function emitFire(actor, weapon, x, y, angle) {
+    if (!multiplayer() || receivingFire) return;
+    sendGameMessage({ type: 'fireEvent', id: `${network.localId}:${++network.fireSeq}`,
+      actorId: actor === localPlayer ? network.localId : actor.id, weapon, x, y, angle,
+      timestamp: Date.now(), round: network.round, spawnVersion: actor.spawnVersion });
+  }
+  function networkMaintenance() {
+    if (!multiplayer()) return;
+    const now = performance.now();
+    if (now - (network.lastHeartbeatAt ?? -Infinity) >= 1500) {
+      network.lastHeartbeatAt = now;
+      sendGameMessage({ type: 'heartbeat', timestamp: now });
+    }
+    for (const [id, actor] of remotePlayers) {
+      if (now - (actor.lastSeen ?? now) > 4000) remotePlayers.delete(id);
+    }
+    if (network.mode === 'guest' && network.ready && now - network.lastHostSeen > 4000)
+      failNetwork('房主超过 4 秒无响应，请重新加入');
+  }
+  function bindGameplay(peer) {
+    network.fireSeq = 0; network.lastHeartbeatAt = -Infinity; network.lastHostSeen = performance.now();
+    network.heartbeatTimer = setInterval(networkMaintenance, 250);
+    peer.on('game-message', packet => {
+      if (network.peer !== peer) return;
+      const { from, message } = packet;
+      if (!message || !['heartbeat', 'fireEvent'].includes(message.type)) return;
+      const now = performance.now();
+      if (from === network.roomId) network.lastHostSeen = now;
+      const remote = remotePlayers.get(from);
+      if (remote) remote.lastSeen = now;
+      if (message.type === 'heartbeat') {
+        if (from === network.localId) console.log(`[Neon Wick] ping RTT: ${Math.round(now - message.timestamp)} ms (relay)`);
+        return;
+      }
+      receiveFire(message, from);
+    });
+  }
+  function receiveFire(message, from) {
+    if (!network.ready || !network.gameStarted || message.round !== network.round ||
+        message.actorId === network.localId || ![message.x, message.y, message.angle, message.timestamp].every(Number.isFinite)) return;
+    const key = `${from}:${message.id}`;
+    if (seenFire.has(key)) return;
+    seenFire.set(key, true);
+    if (seenFire.size > 2048) seenFire.delete(seenFire.keys().next().value);
+    const actor = remotePlayers.get(message.actorId) || (from === network.roomId && enemies.find(e => e.id === message.actorId));
+    if (!actor || actor.hp <= 0) return;
+    if (network.mode === 'host' && (actor.id !== from || message.spawnVersion !== actor.spawnVersion ||
+        !weaponAllowed(message.weapon, actor) || Math.hypot(actor.x - message.x, actor.y - message.y) > BODY_WIDTH * 8)) return;
+    receivingFire = true;
+    try {
+      if (network.mode === 'host') {
+        withPlayer(actor, () => {
+          if (actor.cooldown > 0.025 || actor.reload || actor.draw > 0) return;
+          actor.angle = message.angle; actor.weapon = message.weapon;
+          actor.input.weapon = message.weapon;
+          if (message.weapon === 'katana') startSlash();
+          else shoot(actor, message.weapon, message.angle, false, message);
+        });
+      } else if (message.weapon === 'katana') {
+        actor.weapon = 'katana'; actor.swing = { elapsed: 0, angle: message.angle };
+        sound('slash', 0.6, actor.x);
+      } else {
+        actor.weapon = message.weapon;
+        shoot(actor, message.weapon, message.angle, true, message);
+      }
+    } finally { receivingFire = false; }
+  }
   const rain = [];
   let bullets = [], debris = [], sparks = [], trails = [], ghosts = [], dashTrails = [], stealthTrails = [], sandevistanParticles = [], explosions = [], nails = [], mapLayer;
   let nav, noticeTimer, mapLayerDirty = false, hudCooldown = 0, endElapsed = 0, keybindReturn = 'menu';
@@ -617,6 +689,7 @@ function createGameAudio() {
         connection.open = true; connection.emit('open');
       });
       this.socket.on('relay', data => this.channels.get(data.from)?.emit('data', data.message));
+      this.socket.on('game-message', data => this.emit('game-message', data));
       this.socket.on('channel-close', id => {
         const connection = this.channels.get(id);
         if (connection) { this.channels.delete(id); connection.open = false; connection.emit('close'); }
@@ -638,6 +711,7 @@ function createGameAudio() {
   function actorSnapshot(actor, id = actor.id || '') {
     return { id, x: actor.x, y: actor.y, r: actor.r, angle: actor.angle, hp: actor.hp, maxHp: actor.maxHp || state.playerMaxHp, weapon: actor.weapon || 'pistol', walk: actor.walk || 0, hit: actor.hit || 0, muzzle: actor.muzzle || 0, fireAngle: actor.fireAngle ?? actor.angle, deadAt: actor.deadAt ?? null, expired: !!actor.expired, state: actor.state || 'patrol',
       room: actor.room, ack: actor.ack || 0, ping: actor.ping || 0, spawnVersion: actor.spawnVersion || 0,
+      silenceMs: actor === localPlayer ? 0 : Math.max(0, performance.now() - (actor.lastSeen ?? performance.now())),
       hasStealth: !!actor.hasStealth, hasSandevistan: !!actor.hasSandevistan, hasGatling: !!actor.hasGatling, hasNailgun: !!actor.hasNailgun,
       selectedAbility: actor.selectedAbility, stealthActive: !!actor.stealthActive, sandevistanActive: !!actor.sandevistanActive,
       deaths: actor.deaths || 0, enemyKills: actor.enemyKills || 0, pvpKills: actor.pvpKills || 0, rewardCount: actor.rewardCount || 0,
@@ -661,7 +735,6 @@ function createGameAudio() {
       player: actorSnapshot(player, network.localId || 'host'), playerMaxHp: state.playerMaxHp,
       players: [...remotePlayers.values()].map(remote => actorSnapshot(remote, remote.id)),
       enemies: enemies.map(enemy => actorSnapshot(enemy, enemy.id)),
-      bullets: bullets.map((bullet, index) => ({ id: bullet.id || `b${index}`, x: bullet.x, y: bullet.y, dx: bullet.dx, dy: bullet.dy, weapon: bullet.weapon, alive: bullet.alive, shooterId: bullet.shooter?.id || (bullet.shooter === player ? network.localId || 'host' : 'enemy'), nailLength: bullet.nailLength || 0 })),
       monster: monster ? { ...monster } : null, crates: crates.map(crate => ({ x: crate.x, y: crate.y, w: crate.w, h: crate.h, hp: crate.hp, shrub: crate.shrub, room: crate.room })),
       walls: walls.map(wall => ({ x: wall.x, y: wall.y, w: wall.w, h: wall.h, hp: wall.hp, maxHp: wall.maxHp, vine: wall.vine })),
       airdrops: airdrops.map(drop => ({ ...drop, smoke: [] }))
@@ -676,7 +749,7 @@ function createGameAudio() {
     if (now - (network.lastSnapshotAt ?? -Infinity) < 60) return;
     network.lastSnapshotAt = now;
     if (now - network.lastPingAt >= 2000) { network.hostPing = now; network.lastPingAt = now; }
-    const snapshot = { type: 'snapshot', seq: ++network.sequence, snapshot: gameSnapshot() };
+    const snapshot = { type: 'playerState', seq: ++network.sequence, snapshot: gameSnapshot() };
     for (const connection of allConnections()) netSend(connection, snapshot);
   }
   function restoreMap(data) {
@@ -715,9 +788,10 @@ function createGameAudio() {
         player.y = blocked(x, y, player.r) ? localPlayer.y : y;
       }
       for (const seq of network.pending.keys()) if (seq <= localPlayer.ack) network.pending.delete(seq);
-      player.hp = localPlayer.hp; player.hit = localPlayer.hit || 0; player.muzzle = localPlayer.muzzle || 0;
+      player.hp = localPlayer.hp; player.hit = localPlayer.hit || 0;
       for (const key of ['hasStealth', 'hasSandevistan', 'hasGatling', 'hasNailgun', 'deaths', 'enemyKills', 'pvpKills']) player[key] = localPlayer[key];
-      if (localPlayer.ammo) player.ammo = localPlayer.ammo;
+      if (localPlayer.ammo && (respawned || !network.ready || player.rewardCount !== localPlayer.rewardCount)) player.ammo = structuredClone(localPlayer.ammo);
+      player.rewardCount = localPlayer.rewardCount;
       if (state.mode === 'infinite' && player.ammo.gatling) player.ammo.gatling = { mag: Infinity, reserve: Infinity };
       if (!player.selectedAbility) player.selectedAbility = player.hasSandevistan ? 'sandevistan' : player.hasStealth ? 'stealth' : null;
       if (localPlayer.ping && localPlayer.ping !== network.lastPong) {
@@ -726,18 +800,16 @@ function createGameAudio() {
       }
     }
     if (network.mode === 'guest') {
-      const present = new Set();
       for (const remote of [...(data.players || []), ...(data.player ? [data.player] : [])]) {
         if (!remote.id || remote.id === network.localId) continue;
-        present.add(remote.id);
         const old = remotePlayers.get(remote.id);
         const snap = !old || old.spawnVersion !== remote.spawnVersion;
-        remotePlayers.set(remote.id, { ...remote, x: snap ? remote.x : old.x, y: snap ? remote.y : old.y,
+        remotePlayers.set(remote.id, { ...remote, swing: snap ? null : old.swing,
+          lastSeen: Math.max(old?.lastSeen ?? -Infinity, performance.now() - Math.max(0, remote.silenceMs || 0)),
+          muzzle: Math.max(old?.muzzle || 0, remote.muzzle || 0), x: snap ? remote.x : old.x, y: snap ? remote.y : old.y,
           targetX: remote.x, targetY: remote.y, r: remote.r || RADIUS, maxHp: remote.maxHp || state.playerMaxHp });
       }
-      for (const id of remotePlayers.keys()) if (!present.has(id)) remotePlayers.delete(id);
       enemies.length = 0; enemies.push(...(data.enemies || []).map(enemy => ({ ...enemy, path: [], wait: 0, cooldown: 0, r: enemy.r || 12 })));
-      bullets = (data.bullets || []).map(bullet => ({ ...bullet, remaining: projectileRange(), shooter: bullet.shooterId === network.localId ? player : null }));
       if (data.walls) { for (let i = 0; i < walls.length && i < data.walls.length; i++) { if (walls[i].hp !== data.walls[i].hp) mapLayerDirty = true; walls[i].hp = data.walls[i].hp; } }
       if (data.crates) { for (let i = 0; i < crates.length && i < data.crates.length; i++) crates[i].hp = data.crates[i].hp; }
       monster = data.monster ? { ...data.monster } : null;
@@ -757,7 +829,7 @@ function createGameAudio() {
         const id = connection.peer, spawn = safePointInRoom(rooms[state.spawnRoomIndex]) || { x: player.x + 50, y: player.y };
         const remote = makeRemotePlayer(id, spawn);
         remotePlayers.set(id, remote); network.connections.set(id, connection); sendMapTo(connection); notice('玩家已加入房间');
-      } else if (message.type === 'input') {
+      } else if (message.type === 'playerState') {
         const remote = remotePlayers.get(connection.peer); if (!remote) return;
         const input = message.input;
         if (!input || !Number.isFinite(input.x) || !Number.isFinite(input.y) || !Number.isFinite(input.angle) ||
@@ -770,17 +842,19 @@ function createGameAudio() {
         }
         remote.lastSeen = performance.now();
       } else if (message.type === 'leave') {
-        remotePlayers.delete(connection.peer); network.connections.delete(connection.peer);
+        network.connections.delete(connection.peer);
       }
       return;
     }
     if (network.mode !== 'guest' || network.connection !== connection) return;
+    network.lastHostSeen = performance.now();
     if (message.type === 'map' && (network.joining || message.snapshot?.round !== network.round)) {
       try {
         if (!message.map || !message.snapshot || message.localId !== network.peer.id ||
             !message.snapshot.players?.some(actor => actor.id === message.localId)) throw new Error('无效的房间初始化数据');
         network.localId = message.localId; network.roomId = connection.peer; network.round = message.snapshot.round;
         network.pending.clear(); network.actions = {}; network.lastInputAt = -Infinity;
+        bullets.length = 0; trails.length = 0; seenFire.clear();
         player.hasStealth = false; player.hasSandevistan = false; player.selectedAbility = null;
         player.stealthActive = false; player.sandevistanActive = false; player.weapon = 'pistol';
         refillAllWeapons();
@@ -794,12 +868,14 @@ function createGameAudio() {
         networkLabel(message.snapshot.started ? '已连接' : '已加入 · 等待房主开始'); notice('已加入多人行动');
       } catch (error) { failNetwork(`初始化失败：${error.message}`); }
     }
-    if (message.type === 'snapshot' && network.ready) applyGameSnapshot(message.snapshot);
+    if (message.type === 'playerState' && network.ready && message.snapshot?.round === network.round) applyGameSnapshot(message.snapshot);
     if (message.type === 'reject') failNetwork(message.reason || '加入失败');
   }
   function closeNetwork() {
     relayLoadAttempt++;
     clearTimeout(network.joinTimer);
+    clearInterval(network.heartbeatTimer); network.heartbeatTimer = null;
+    seenFire.clear();
     const peer = network.peer, connections = [...network.connections.values()];
     // Invalidate callbacks before close/destroy can synchronously emit events.
     network.peer = null; network.connection = null; network.joinTimer = null; network.joining = false;
@@ -833,6 +909,7 @@ function createGameAudio() {
       const roomCode = 'nw-' + Array.from(crypto.getRandomValues(new Uint8Array(8)), n => n.toString(16).padStart(2, '0')).join('');
       const peer = new RelayClient(address, roomCode);
       network.peer = peer;
+      bindGameplay(peer);
       network.joinTimer = setTimeout(() => { if (network.peer === peer && !network.roomId) failNetwork('创建房间超时，请检查服务器地址或网络'); }, 8000);
       peer.on('open', id => {
         if (network.peer !== peer) return;
@@ -851,7 +928,7 @@ function createGameAudio() {
         });
         connection.on('close', () => {
           if (network.peer !== peer || network.connections.get(connection.peer) !== connection) return;
-          remotePlayers.delete(connection.peer); network.connections.delete(connection.peer);
+          network.connections.delete(connection.peer);
         });
         connection.on('error', error => {
           if (network.peer !== peer) return;
@@ -874,6 +951,7 @@ function createGameAudio() {
     try {
       const peer = new RelayClient(address);
       network.peer = peer;
+      bindGameplay(peer);
       network.joinTimer = setTimeout(() => {
         if (network.peer === peer && network.joining) failNetwork('连接失败，请检查房间码或网络，重试', true);
       }, 8000);
@@ -891,13 +969,13 @@ function createGameAudio() {
             try { connection.send({ type: 'join', protocol: 1 }); }
             catch (error) { failNetwork(peerErrorText(error)); }
           });
-          connection.on('close', () => { if (network.peer === peer) failNetwork('房主已断开连接，请重试'); });
+          connection.on('close', () => { if (network.peer === peer && !network.ready) failNetwork('房主已断开连接，请重试'); });
           connection.on('error', error => { if (network.peer === peer) failNetwork(peerErrorText(error)); });
         } catch (error) { failNetwork(peerErrorText(error)); }
       });
       peer.on('error', error => { if (network.peer === peer) failNetwork(peerErrorText(error)); });
       peer.on('disconnected', () => { if (network.peer === peer) failNetwork('连接错误：network · 信令连接已断开'); });
-      peer.on('close', () => { if (network.peer === peer) failNetwork('连接已关闭，请重试'); });
+      peer.on('close', () => { if (network.peer === peer && !network.ready) failNetwork('连接已关闭，请重试'); });
     } catch (error) { failNetwork(peerErrorText(error)); }
   }
   function sendGuestInput() {
@@ -909,15 +987,15 @@ function createGameAudio() {
     const seq = ++network.inputSeq;
     network.pending.set(seq, { x: player.x, y: player.y });
     if (network.pending.size > 180) network.pending.delete(network.pending.keys().next().value);
-    netSend(network.connection, { type: 'input', input: { seq, x: player.x, y: player.y, spawnVersion: player.spawnVersion,
+    netSend(network.connection, { type: 'playerState', input: { seq, x: player.x, y: player.y, spawnVersion: player.spawnVersion,
       keys: [...keys].filter(code => ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(code)), angle: player.angle,
-      firing: pointer.left, justPressed: pointer.justPressed, weapon: player.weapon, dash: player.dashActive,
+      weapon: player.weapon, dash: player.dashActive,
       ping: network.pingToken, echoHostPing: network.echoHostPing, actions: network.actions || {} } });
     pointer.justPressed = false;
   }
   function makeRemotePlayer(id, spawn) {
     const actor = { ...structuredClone(localPlayer), ...spawn, id, maxHp: state.playerMaxHp, hp: state.playerMaxHp,
-      swing: null, reload: null, cooldown: 0, draw: 0, dashActive: false, input: {}, ack: 0, lastMoveAt: performance.now(),
+      swing: null, reload: null, cooldown: 0, draw: 0, dashActive: false, input: {}, ack: 0, lastMoveAt: performance.now(), lastSeen: performance.now(),
       hasStealth: false, hasSandevistan: false, stealthActive: false, sandevistanActive: false, selectedAbility: null, actions: {} };
     equipRoomPlayer(actor);
     withPlayer(actor, refillAllWeapons);
@@ -1367,10 +1445,10 @@ function createGameAudio() {
     player.reload = { weapon: player.weapon, remaining: GUNS[player.weapon].reload || 0.75 };
     sound('switchWeapon', 0.6);
   }
-  function shoot(shooter, weapon = 'pistol', angleOverride = null) {
+  function shoot(shooter, weapon = 'pistol', angleOverride = null, visualOnly = false, origin = shooter) {
     const gun = GUNS[weapon];
     if (!gun || (multiplayer() && participants().includes(shooter) && !weaponAllowed(weapon, shooter))) return false;
-    if (shooter === player) {
+    if (shooter === player && !visualOnly) {
       const ammo = player.ammo[weapon];
       if (player.reload || player.draw > 0 || ammo.mag <= 0 || (weapon === 'gatling' && player.gatlingOverheated > 0)) { if (ammo.mag <= 0) reload(); return false; }
       deactivateStealth();
@@ -1387,7 +1465,7 @@ function createGameAudio() {
     for (const shotAngle of angles) {
       const allied = shooter === player || (multiplayer() && participants().includes(shooter));
       const enemyRocket = !allied && weapon === 'rocket';
-      const bullet = { id: `bullet-${network.sequence++}-${Math.random().toString(36).slice(2, 7)}`, x: shooter.x, y: shooter.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (allied ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
+      const bullet = { id: `bullet-${network.sequence++}-${Math.random().toString(36).slice(2, 7)}`, x: origin.x, y: origin.y, dx: Math.cos(shotAngle), dy: Math.sin(shotAngle), speed: gun.speed, damage: enemyRocket ? 20 : gun.damage * (allied ? state.playerDamageMultiplier : state.enemyDamageMultiplier), shooter, weapon, bounces: 0, remaining: projectileRange(), alive: true, nailLength: weapon === 'nailgun' ? BODY_WIDTH : 0 };
     // Continuous weapons can otherwise create thousands of short-lived objects
     // while the mouse is held. Keep a bounded projectile window and discard the
     // oldest ordinary round before it can affect the current shot.
@@ -1402,6 +1480,7 @@ function createGameAudio() {
       sound('gun', shooter === player ? 0.7 : 0.35, shooter.x, weapon === 'rocket' || weapon === 'gatling' ? 'rifle' : weapon);
       if (shooter === player) player.shotAudioCooldown = weapon === 'gatling' ? 0.08 : 0.035;
     }
+    if (!visualOnly) emitFire(shooter, weapon, origin.x, origin.y, angle);
     return true;
   }
   function startSlash() {
@@ -1434,6 +1513,7 @@ function createGameAudio() {
     ghosts.push({ x: (player.swing.blinkStartX + player.x) / 2, y: (player.swing.blinkStartY + player.y) / 2, angle: player.angle, life: 0.16 * GHOST_LIFE_SCALE });
     player.cooldown = 0.42;
     sound('slash', 0.8);
+    emitFire(player, 'katana', startX, startY, player.angle);
     return true;
   }
   function updateSlash(dt) {
@@ -1638,6 +1718,7 @@ function createGameAudio() {
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 25, life: 0.18, maxLife: 0.18, color: '#fff1a8', flash: true });
     // A hot red shockwave sells the impact while respecting the one-second TTL.
     spawnExplosion({ x, y, vx: 0, vy: 0, size: 10, life: ROCKET_EFFECT_TTL, maxLife: ROCKET_EFFECT_TTL, color: '#ff3b23', ring: true });
+    if (network.mode === 'guest') return;
     if (multiplayer()) {
       for (const target of [...participants(), ...enemies, ...(monster && !monster.dead ? [monster] : [])]) {
         if (target !== bullet.shooter && target.hp > 0 && Math.hypot(target.x - x, target.y - y) <= ROCKET_BLAST_RADIUS) damage(target, bullet.damage, false, bullet.shooter);
@@ -1682,6 +1763,9 @@ function createGameAudio() {
     notice('重新整备'); updateHUD();
   }
   function advanceBullet(bullet, distance, effects = true) {
+    if (network.mode === 'guest' && bullet.shooter?.id) {
+      bullet.shooter = remotePlayers.get(bullet.shooter.id) || enemies.find(e => e.id === bullet.shooter.id) || bullet.shooter;
+    }
     if (bullet.weapon === 'gatling') return advanceGatling(bullet, distance, effects);
     if (bullet.weapon === 'laser') return advanceLaserBullet(bullet, distance, effects);
     let remaining = Math.min(distance, bullet.remaining);
@@ -1700,7 +1784,7 @@ function createGameAudio() {
           bullet.alive = false; break;
         }
         if (bullet.weapon === 'rocket') { explode(bullet.x, bullet.y, bullet); bullet.alive = false; break; }
-        if (hit.kind === 'wall' && hit.object.hp != null) {
+        if (hit.kind === 'wall' && hit.object.hp != null && network.mode !== 'guest') {
           const before = hit.object.hp;
           hit.object.hp = Math.max(0, hit.object.hp - bullet.damage);
           if (before > 0 && hit.object.hp === 0) { nav.dirty = true; mapLayerDirty = true; }
@@ -1795,7 +1879,7 @@ function createGameAudio() {
         if (!bullet.pierced.size) bullet.remaining = Math.min(bullet.remaining, exitDistance(bullet, hit.object) + BODY_WIDTH * 7);
         bullet.pierced.add(hit.object);
         available = Math.min(available, bullet.remaining);
-        if (!previewSegments) {
+        if (!previewSegments && network.mode !== 'guest') {
           const before = hit.object.hp;
           hit.object.hp = Math.max(0, hit.object.hp - bullet.damage * 0.3);
           if (before > 0 && hit.object.hp === 0) { nav.dirty = true; mapLayerDirty = true; }
@@ -2221,7 +2305,6 @@ function createGameAudio() {
     const wantsFire = player.weapon === 'laser' ? pointer.justPressed : pointer.left;
     if (wantsFire && player.cooldown <= 0 && !player.reload && player.draw <= 0) {
       if (player.weapon === 'katana') startSlash();
-      else if (network.mode === 'guest') { /* Firing intent is sent once by the 60 ms position packet. */ }
       else if (shoot(player, player.weapon) && player.weapon === 'laser') pointer.justPressed = false;
     }
     if (GUNS[player.weapon] && player.ammo[player.weapon].mag === 0 && !player.reload) reload();
@@ -2231,8 +2314,8 @@ function createGameAudio() {
     if (remote.hp <= 0) return;
     acceptPosition(remote);
     const savedKeys = [...keys], savedPointer = { ...pointer }, savedCamera = { ...camera };
-    const input = remote.input || {}, fresh = performance.now() - remote.lastSeen < 250;
-    keys.clear(); pointer.left = fresh && !!input.firing; pointer.justPressed = fresh && !!input.justPressed;
+    const input = remote.input || {};
+    keys.clear(); pointer.left = false; pointer.justPressed = false;
     remote.dashActive = false;
     try {
       withPlayer(remote, () => {
@@ -2378,7 +2461,11 @@ function createGameAudio() {
         const alpha = 1 - Math.exp(-14 * dt);
         actor.x += ((actor.targetX ?? actor.x) - actor.x) * alpha;
         actor.y += ((actor.targetY ?? actor.y) - actor.y) * alpha;
+        actor.muzzle = Math.max(0, (actor.muzzle || 0) - dt);
+        if (actor.swing && (actor.swing.elapsed += dt) >= SWING_TIME) actor.swing = null;
       }
+      for (const bullet of bullets) advanceBullet(bullet, bullet.speed * dt);
+      bullets = bullets.filter(bullet => bullet.alive);
       updateEffects(dt);
       hudCooldown -= dt; if (hudCooldown <= 0) updateHUD();
       return;
@@ -2710,16 +2797,16 @@ function createGameAudio() {
         ctx.fillStyle = '#0b131c'; ctx.fillRect(-19, -2, 35, 5);
         ctx.fillStyle = '#a98a51'; ctx.fillRect(14, -3, 3, 7); ctx.restore();
       }
-      if (main && player.weapon === 'katana') {
-        if (player.draw > 0) {
-          const progress = 1 - player.draw / DRAW_TIME;
+      if (actor.weapon === 'katana') {
+        if (actor.draw > 0) {
+          const progress = 1 - actor.draw / DRAW_TIME;
           ctx.save(); ctx.translate(-1 + progress * 17, 9 - progress * 12); ctx.rotate(0.8 - progress * 1.05);
           katana(Math.max(3, 38 * progress));
           glint(38 * progress, -3, 4 + Math.sin(progress * Math.PI) * 10, Math.sin(progress * Math.PI)); ctx.restore();
         } else {
-          const swing = player.swing;
+          const swing = actor.swing;
           ctx.save();
-          const angle = swing ? angleDelta(swing.angle, player.angle) - 1.25 + clamp((swing.elapsed - 0.04) / 0.23, 0, 1) * 2.5 : -0.35;
+          const angle = swing ? angleDelta(swing.angle, actor.angle) - 1.25 + clamp((swing.elapsed - 0.04) / 0.23, 0, 1) * 2.5 : -0.35;
           ctx.rotate(angle); ctx.translate(14, 0); katana();
           const shimmer = 0.25 + 0.75 * Math.max(0, Math.sin(state.time * 3.5));
           glint(22 + Math.sin(state.time * 2) * 9, -2, 4, shimmer); ctx.restore();
@@ -2727,7 +2814,7 @@ function createGameAudio() {
             const progress = clamp((swing.elapsed - 0.02) / 0.16, 0, 1);
             ctx.save();
             ctx.globalAlpha = 0.92 * (1 - swing.elapsed / SWING_TIME);
-            ctx.rotate(angleDelta(swing.angle, player.angle) + Math.PI / 6);
+            ctx.rotate(angleDelta(swing.angle, actor.angle) + Math.PI / 6);
             ctx.translate(20 + progress * 18, 0);
             ctx.strokeStyle = '#56e4ef'; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(-36, 0); ctx.lineTo(36, 0); ctx.stroke();
@@ -3151,6 +3238,7 @@ function createGameAudio() {
   requestAnimationFrame(frame);
   // Offline QA injects a collector; no debug interface is exposed in ordinary play.
   if (typeof globalThis.__collectGame === 'function') globalThis.__collectGame({
+    networkMaintenance, receiveFire, bindGameplay,
     network, remotePlayers, localPlayer, chipDrops, makeMap, acceptPosition, sendGuestInput, updateRemotePlayer, makeRemotePlayer,
     applyGameSnapshot, gameSnapshot, mapSnapshot, restoreMap, respawnMultiplayer, weaponAllowed, startHostGame,
     get roomRules() { return roomRules; }, set roomRules(value) { roomRules = value; }, applyRules,

@@ -18,7 +18,7 @@ function element(id) {
 let now = 0, game;
 const scope = vm.createContext({
   console, structuredClone, performance: { now: () => now },
-  setTimeout: () => 1, clearTimeout: noop, requestAnimationFrame: noop, URL,
+  setTimeout: () => 1, clearTimeout: noop, setInterval: () => 1, clearInterval: noop, requestAnimationFrame: noop, URL,
   location: { protocol: 'https:', hostname: 'example.com', origin: 'https://example.com' },
   document: { getElementById: element, querySelector: element, querySelectorAll: () => [], createElement: () => element(Symbol()), addEventListener: noop },
   window: { addEventListener: noop }, globalThis: { __collectGame: g => { game = g; } },
@@ -36,7 +36,7 @@ assert.ok(game.pillars.every(p => p.cactus));
 assert.ok(game.crates.every(c => c.tumbleweed));
 assert.equal(game.spawnMonster(), false);
 assert.equal(game.player.weapon, 'pistol');
-assert.equal(game.weaponAllowed('laser'), false); assert.equal(game.weaponAllowed('katana'), false);
+assert.equal(game.weaponAllowed('laser'), false); assert.equal(game.weaponAllowed('katana'), true);
 assert.equal(game.weaponAllowed('nailgun'), true);
 const remote = game.makeRemotePlayer('guest', { x: game.player.x, y: game.player.y });
 game.remotePlayers.set(remote.id, remote);
@@ -98,6 +98,67 @@ snapshot.player.x = 400;
 game.applyGameSnapshot(snapshot);
 assert.equal(game.remotePlayers.get('host-player').x, 300);
 assert.equal(game.remotePlayers.get('host-player').targetX, 400);
+game.state.muted = true;
+game.player.draw = 0; game.player.reload = null; game.player.cooldown = 0;
+game.player.ammo.pistol.mag = 10;
+const packets = [];
+game.network.peer = { socket: { connected: true, emit: (name, packet) => packets.push(packet.message) } };
+game.network.fireSeq = 0;
+assert.equal(game.shoot(game.player, 'pistol', 0), true);
+const shot = game.bullets.at(-1);
+assert.ok(shot.alive); assert.ok(game.camera.shake > 0); assert.ok(game.player.muzzle > 0);
+assert.equal(packets.at(-1).type, 'fireEvent');
+assert.equal(packets.at(-1).weapon, 'pistol');
+assert.equal(game.player.ammo.pistol.mag, 9);
+game.applyGameSnapshot(snapshot);
+assert.ok(game.bullets.includes(shot), 'Position snapshots must not erase projectiles');
+assert.equal(game.player.ammo.pistol.mag, 9, 'Stale snapshots must not undo predicted ammo');
+assert.ok(game.player.muzzle > 0);
+assert.equal('bullets' in game.gameSnapshot(), false);
+game.walls.length = 0; game.pillars.length = 0; game.crates.length = 0; game.enemies.length = 0;
+const bx = shot.x;
+game.update(1 / 60);
+assert.ok(shot.x > bx, 'Guest simulates local projectile movement');
+game.network.gameStarted = true;
+const event = { type: 'fireEvent', actorId: 'host-player', id: 'test-shot', weapon: 'pistol',
+  x: 400, y: 350, angle: 0, timestamp: 10, round: game.network.round };
+const count = game.bullets.length;
+game.receiveFire(event, 'host-player'); game.receiveFire(event, 'host-player');
+assert.equal(game.bullets.length, count + 1, 'Duplicate events produce one shot');
+game.receiveFire({ ...event, id: 'slash', weapon: 'katana' }, 'host-player');
+assert.ok(game.remotePlayers.get('host-player').swing);
+game.draw();
+snapshot.player = null; snapshot.players = [];
+game.applyGameSnapshot(snapshot);
+assert.ok(game.remotePlayers.has('host-player'), 'Missing snapshot entries are retained');
+const seenAt = game.remotePlayers.get('host-player').lastSeen;
+game.network.lastHostSeen = 1e9;
+now = seenAt + 4000; game.networkMaintenance();
+assert.ok(game.remotePlayers.has('host-player'));
+now++; game.networkMaintenance();
+assert.equal(game.remotePlayers.has('host-player'), false);
+packets.length = 0; now = 10000; game.network.lastHeartbeatAt = -Infinity;
+game.networkMaintenance(); now += 1499; game.networkMaintenance();
+assert.equal(packets.length, 1); now++; game.networkMaintenance();
+assert.equal(packets.length, 2); assert.equal(packets[0].type, 'heartbeat');
+const wall = { x: 20, y: 0, w: 10, h: 40, hp: 100, maxHp: 100, kind: 'wall' };
+game.walls.push(wall);
+for (const weapon of ['pistol', 'gatling', 'rocket']) {
+  game.advanceBullet({ x: 0, y: 20, dx: 1, dy: 0, speed: 100, damage: 20,
+    shooter: game.player, weapon, remaining: 100, bounces: 0, alive: true }, 40);
+  assert.equal(wall.hp, 100, 'Guest projectile effects cannot modify authoritative walls');
+}
+game.network.mode = 'host'; game.network.localId = 'host';
+const firingGuest = game.makeRemotePlayer('firing-guest', { x: 700, y: 500 });
+game.remotePlayers.set(firingGuest.id, firingGuest);
+firingGuest.input = { firing: true, justPressed: true, weapon: 'pistol' };
+const mag = firingGuest.ammo.pistol.mag, beforeHostShot = game.bullets.length;
+game.receiveFire({ ...event, id: 'host-accept', actorId: firingGuest.id, x: 700, y: 500,
+  spawnVersion: firingGuest.spawnVersion }, firingGuest.id);
+assert.equal(firingGuest.ammo.pistol.mag, mag - 1);
+assert.equal(game.bullets.length, beforeHostShot + 1);
+game.updateRemotePlayer(firingGuest, 0.01);
+assert.equal(game.bullets.length, beforeHostShot + 1, 'Position input cannot also fire');
 game.network.mode = 'single'; game.state.mapType = 'rooms'; game.state.enemyCount = 72;
 game.restart(); assert.equal(game.rooms.length, 72); assert.equal(game.player.weapon, 'laser');
-console.log('PASS: single-player; desert size/cover/loadout; PVP damage/challenge respawn; per-player recurring drops; recurring chips; stale respawn packets; 60ms throttle; prediction; remote lerp; own-player snapshot identity.');
+console.log('PASS: single-player; desert/loadouts; PVP/PVEVP; 60ms throttle; prediction; lerp; immediate local fire; snapshot persistence/ammo; guest projectile simulation; fire deduplication; katana rendering; >4s retention; 1.5s heartbeat.');

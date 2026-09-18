@@ -44,8 +44,10 @@ Do not deploy this as a short-lived serverless function.
 ## Room Rules and Movement
 
 The HTML defaults to `https://neon-wick-online.onrender.com`.
-The existing relay protocol is unchanged; no new backend event is needed.
-Replace the hosted HTML with this version on every player's frontend.
+Deploy BOTH `server.cjs` to Render and the complete `neon-wick-room36.html`
+to every player's frontend. This version changes gameplay message types;
+an old relay will reject the new messages. Room registration and joining
+keep the same workflow and room codes.
 
 Room Settings contains PVP/PVEVP, map, enemy count, health, respawn rules,
 respawn count, both damage multipliers, stealth/dash duration, and optional
@@ -53,7 +55,7 @@ laser/nailgun/gatling loadouts. Settings are editable before hosting starts.
 Joining guests receive the host's authoritative settings and can inspect them.
 PVP has no AI. Desert has no AI or bosses in either mode, occupies 3x2
 rainforest-sized blocks (1320x680), uses solid cacti and destructible tumbleweed
-cover, and limits weapons to pistol/rifle/rocket plus checked special guns.
+cover, and includes pistol/rifle/rocket/katana plus checked special guns.
 
 PVEVP bosses keep dropping alternating ability chips. Each player's every
 10 AI kills earns a red supply drop reserved for that player; it restores
@@ -70,6 +72,21 @@ movement against collision but this is not a production anti-cheat system.
 
 ## Behavior and limits
 
+Gameplay packets are separated into `playerState`, `fireEvent`, and
+`heartbeat`. Shooting immediately creates local projectiles, muzzle effects,
+trails, and shake. Fire events carry origin, angle, timestamp, weapon, event
+ID, actor ID, round, and spawn version; the relay never simulates projectiles
+or sends their positions. All browsers simulate projectiles locally, while
+the host browser decides damage and sends health/world state. Snapshots never
+replace live projectiles. Duplicate fire events are ignored.
+
+Every client sends a heartbeat every 1.5 seconds independently of the render
+loop. Remote actors remain visible until more than four seconds without
+data, including when omitted from a snapshot. Heartbeat echoes also log
+client-relay RTT. Browser suspension can still prevent timers from running.
+Katana is available in all multiplayer maps with the existing Q binding;
+remote sword swings are rendered too.
+
 - No PeerJS, WebRTC, STUN, or TURN is used.
 - Socket.IO forwards game messages; the room host still simulates the game.
 - Up to eight players per room. The original single-player mode is retained.
@@ -77,7 +94,8 @@ movement against collision but this is not a production anti-cheat system.
   the new map, loadouts, and final rules to all members.
 - Connection and map-handshake timeout is eight seconds after the client
   library has loaded. Library loading has its own eight-second timeout.
-- A disconnect returns the player to the menu; retry using the same room
+- A guest waits until the host has been silent for over four seconds before
+  returning to the menu; retry using the same room
   while its host is still online. There is no automatic session recovery.
 - Host departure or server restart ends the room. Keep the host tab active:
   browsers can throttle background game simulation.
